@@ -12,6 +12,7 @@ export interface Guest {
 }
 
 export type GuestFilter = 'all' | 'arrived' | 'pending' | 'absent';
+export type UserRole = 'admin' | 'hostess';
 
 export interface DashboardStats {
   total: number;

@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Guest } from '../types';
+import { Guest, UserRole } from '../types';
 import { Check, Utensils, Info, MoreVertical, Trash2, Edit } from 'lucide-react';
 
 interface GuestCardProps {
   guest: Guest;
+  userRole: UserRole;
   onToggleStatus: (id: string, currentStatus: boolean) => void;
   onEdit: (guest: Guest) => void;
   onDelete: (id: string) => void;
 }
 
-const GuestCard: React.FC<GuestCardProps> = ({ guest, onToggleStatus, onEdit, onDelete }) => {
+const GuestCard: React.FC<GuestCardProps> = ({ guest, userRole, onToggleStatus, onEdit, onDelete }) => {
   const isArrived = guest.hasArrived;
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -87,40 +88,45 @@ const GuestCard: React.FC<GuestCardProps> = ({ guest, onToggleStatus, onEdit, on
               <span className="whitespace-nowrap">Table {guest.tableNumber}</span>
             </div>
             
-            {/* Context Menu Button */}
-            <div className="relative" ref={menuRef}>
-              <button 
-                onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
-                className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 active:bg-slate-200 transition-colors"
-              >
-                <MoreVertical size={16} />
-              </button>
+            {/* Context Menu Button - ONLY FOR ADMIN */}
+            {userRole === 'admin' && (
+              <div className="relative" ref={menuRef}>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+                  className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+                >
+                  <MoreVertical size={16} />
+                </button>
 
-              {/* Dropdown Menu */}
-              {showMenu && (
-                <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-right">
-                  <button 
-                    onClick={(e) => handleMenuAction(e, 'edit')}
-                    className="w-full text-left px-4 py-3 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 border-b border-slate-50"
-                  >
-                    <Edit size={14} />
-                    Changer table
-                  </button>
-                  <button 
-                    onClick={(e) => handleMenuAction(e, 'delete')}
-                    className="w-full text-left px-4 py-3 text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2"
-                  >
-                    <Trash2 size={14} />
-                    Désactiver
-                  </button>
-                </div>
-              )}
-            </div>
+                {/* Dropdown Menu */}
+                {showMenu && (
+                  <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-right">
+                    <button 
+                      onClick={(e) => handleMenuAction(e, 'edit')}
+                      className="w-full text-left px-4 py-3 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 border-b border-slate-50"
+                    >
+                      <Edit size={14} />
+                      Changer table
+                    </button>
+                    <button 
+                      onClick={(e) => handleMenuAction(e, 'delete')}
+                      className="w-full text-left px-4 py-3 text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                    >
+                      <Trash2 size={14} />
+                      Désactiver
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Toggle Button */}
           <button
-            onClick={() => onToggleStatus(guest.id, isArrived)}
+            onClick={(e) => {
+              e.stopPropagation(); // EMPÊCHE LA PROPAGATION DU CLIC
+              onToggleStatus(guest.id, isArrived);
+            }}
             className={`
               flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 active:scale-90
               ${isArrived 
