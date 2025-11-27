@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, RefreshCw, X, Settings, Utensils, Users, LayoutList, LayoutGrid, Plus, Lock, LogOut, ChevronRight } from 'lucide-react';
+import { Search, Filter, RefreshCw, X, Settings, Utensils, Users, LayoutList, LayoutGrid, Plus, Lock, LogOut, ChevronRight, Download } from 'lucide-react';
 import { Guest, GuestFilter, DashboardStats, UserRole } from './types';
 import * as guestService from './services/guestService';
 import Stats from './components/Stats';
@@ -27,6 +27,31 @@ const App: React.FC = () => {
   const [showGuestForm, setShowGuestForm] = useState(false);
   const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // PWA Install State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+
+  // PWA Install Logic
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowInstallBtn(false);
+    }
+    setDeferredPrompt(null);
+  };
 
   // Check Local Storage for Session
   useEffect(() => {
@@ -227,6 +252,18 @@ const App: React.FC = () => {
           </div>
           
           <div className="p-6 space-y-4">
+            
+            {/* Install Button for PWA */}
+            {showInstallBtn && (
+               <button 
+                onClick={handleInstallClick}
+                className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl shadow-lg shadow-indigo-200 font-bold flex items-center justify-center gap-2 animate-pulse"
+              >
+                <Download size={20} />
+                Installer l'application
+              </button>
+            )}
+
             <button 
               onClick={() => handleLogin('hostess')}
               className="w-full py-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-xl flex items-center justify-between px-6 group transition-all"
@@ -301,6 +338,18 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="flex gap-2">
+              
+              {/* Install Icon for Logged in Users */}
+              {showInstallBtn && (
+                 <button 
+                  onClick={handleInstallClick}
+                  className="p-2 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 animate-pulse"
+                  title="Installer l'application"
+                >
+                  <Download size={18} />
+                </button>
+              )}
+
               <button 
                 onClick={handleRefresh}
                 disabled={isRefreshing}
@@ -471,7 +520,7 @@ const App: React.FC = () => {
         </button>
       )}
 
-      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
+      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} guests={guests} />}
       
       {(showGuestForm || editingGuest) && (
         <GuestForm 

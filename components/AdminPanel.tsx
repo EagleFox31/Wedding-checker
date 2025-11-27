@@ -1,18 +1,27 @@
 import React, { useState } from 'react';
-import { Upload, AlertCircle, CheckCircle, Database, Copy, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle, Database, Copy, ChevronDown, ChevronUp, FileSpreadsheet, Download } from 'lucide-react';
 import { Guest } from '../types';
 import * as guestService from '../services/guestService';
+// @ts-ignore
+import * as XLSX from 'xlsx';
 
 interface AdminPanelProps {
   onClose: () => void;
+  guests: Guest[];
 }
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests }) => {
   const [inputText, setInputText] = useState('');
   const [parsedGuests, setParsedGuests] = useState<Guest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+
+  // Stats pour le rapport
+  const total = currentGuests.length;
+  const arrived = currentGuests.filter(g => g.hasArrived).length;
+  const absent = currentGuests.filter(g => g.isAbsent).length;
+  const pending = total - arrived - absent;
 
   // Parser intelligent pour le format spécifique:
   // Colonnes: Table | Nom | Prénom | Mention
@@ -105,6 +114,47 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     }
   };
 
+  const downloadExcel = () => {
+    // 1. Préparer les données
+    const data = currentGuests.map(g => ({
+        "Nom": g.lastName,
+        "Prénom": g.firstName,
+        "Table": g.tableNumber,
+        "Statut": g.hasArrived ? 'Présent' : g.isAbsent ? 'Absent' : 'Non venu',
+        "Heure d'arrivée": g.arrivedAt ? new Date(g.arrivedAt).toLocaleTimeString('fr-FR') : '-',
+        "Invité par": g.inviter,
+        "Note": g.description || ''
+    }));
+
+    // 2. Créer une feuille de calcul (Worksheet)
+    const worksheet = XLSX.utils.json_to_sheet(data);
+
+    // 3. Ajuster la largeur des colonnes (Optionnel mais recommandé pour Excel)
+    const wscols = [
+        {wch: 20}, // Nom
+        {wch: 20}, // Prénom
+        {wch: 10}, // Table
+        {wch: 15}, // Statut
+        {wch: 15}, // Heure
+        {wch: 15}, // Invité par
+        {wch: 30}  // Note
+    ];
+    worksheet['!cols'] = wscols;
+
+    // 4. Créer le classeur (Workbook)
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Mariage");
+
+    // 5. Générer le fichier et déclencher le téléchargement
+    XLSX.writeFile(workbook, `Rapport_Serge_Christiane_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const copySummary = () => {
+      const summary = `*Rapport Mariage Serge & Christiane*\n\nTotal Invités : ${total}\n✅ Présents : ${arrived}\n❌ Absents : ${absent}\n⏳ En attente : ${pending}\n\nLien App: ${window.location.origin}`;
+      navigator.clipboard.writeText(summary);
+      alert('Résumé copié dans le presse-papier !');
+  };
+
   return (
     <div className="absolute inset-0 bg-slate-50 z-50 flex flex-col animate-in slide-in-from-bottom-10 duration-300">
       
@@ -114,121 +164,159 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         <button onClick={onClose} className="text-slate-500 font-medium text-sm">Fermer</button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5">
-        
-        {/* Step 1: Firebase Setup */}
-        <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100 mb-6">
-          <div 
-            className="flex items-center justify-between cursor-pointer"
-            onClick={() => setShowTutorial(!showTutorial)}
-          >
-            <div className="flex items-center gap-2 text-indigo-800 font-bold">
-              <Database size={18} />
-              <span>Lier à Firebase</span>
-            </div>
-            {showTutorial ? <ChevronUp size={18} className="text-indigo-600"/> : <ChevronDown size={18} className="text-indigo-600"/>}
-          </div>
+      <div className="flex-1 overflow-y-auto p-5 pb-20">
 
-          {showTutorial && (
-            <div className="mt-3 text-sm text-indigo-900/80 space-y-2">
-              <p>Pour synchroniser les données en temps réel :</p>
-              <ol className="list-decimal list-inside space-y-1 ml-1 text-xs">
-                <li>Allez sur <a href="https://console.firebase.google.com" target="_blank" className="underline font-bold">console.firebase.google.com</a></li>
-                <li>Créez un projet et ajoutez une "App Web"</li>
-                <li>Copiez la configuration (apiKey, etc.)</li>
-                <li>Ouvrez le fichier <code>services/firebase.ts</code> dans votre code</li>
-                <li>Collez la configuration à la place des valeurs par défaut.</li>
-                <li>Une fois fait, rechargez cette page.</li>
-              </ol>
-            </div>
-          )}
-        </div>
+        {/* SECTION RAPPORT (FIN EVENT) */}
+        <div className="bg-white border border-slate-200 rounded-xl p-5 mb-8 shadow-sm">
+            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <FileSpreadsheet size={20} className="text-emerald-600" />
+                Rapports & Clôture
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+                Exportez les données finales de l'événement pour analyser les présences et les heures d'arrivée.
+            </p>
 
-        {/* Step 2: Import Data */}
-        <div className="mb-2">
-          <h3 className="font-bold text-slate-700 mb-2 flex items-center gap-2">
-            <Upload size={18} />
-            Importer la liste Excel
-          </h3>
-          <p className="text-xs text-slate-500 mb-3">
-            Sélectionnez vos cellules dans Excel (colonnes <b>Table, Nom, Prénom, Mention</b>) et copiez-collez ici.
-          </p>
-          
-          <textarea
-            className="w-full h-32 p-3 text-xs font-mono bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none mb-3 whitespace-pre"
-            placeholder={`1:BENEDICTION\tBAYEMI\tChristiane\tChristiane\n2\tDUPONT\tJean\tSerge`}
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-          />
-
-          <button
-            onClick={parseData}
-            className="w-full py-2 bg-slate-800 text-white rounded-lg font-medium text-sm hover:bg-slate-700 transition-colors mb-4"
-          >
-            Prévisualiser les données
-          </button>
-        </div>
-
-        {/* Step 3: Preview & Confirm */}
-        {error && (
-          <div className="bg-rose-50 text-rose-600 p-3 rounded-lg text-sm flex items-center gap-2 mb-4">
-            <AlertCircle size={16} />
-            {error}
-          </div>
-        )}
-
-        {parsedGuests.length > 0 && (
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-20">
-            <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
-              <span className="text-xs font-bold text-slate-500 uppercase">{parsedGuests.length} Invités détectés</span>
-            </div>
-            <div className="max-h-60 overflow-y-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-500 sticky top-0 shadow-sm">
-                  <tr>
-                    <th className="px-3 py-2 bg-slate-50">Nom Prénom</th>
-                    <th className="px-3 py-2 bg-slate-50">Table</th>
-                    <th className="px-3 py-2 bg-slate-50">Mention</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {parsedGuests.map((g, i) => (
-                    <tr key={i}>
-                      <td className="px-3 py-2">
-                        <span className="font-bold">{g.lastName}</span> {g.firstName}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="font-mono bg-slate-100 px-1 rounded">{g.tableNumber}</span>
-                        {g.description && <div className="text-[9px] text-slate-400">{g.description}</div>}
-                      </td>
-                      <td className="px-3 py-2 text-slate-400 truncate max-w-[100px]">{g.inviter}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-2 gap-3">
+                <button 
+                    onClick={downloadExcel}
+                    className="flex flex-col items-center justify-center gap-2 p-4 bg-emerald-50 border border-emerald-100 rounded-xl hover:bg-emerald-100 transition-colors"
+                >
+                    <Download size={24} className="text-emerald-600" />
+                    <span className="text-xs font-bold text-emerald-800">Télécharger Excel</span>
+                </button>
+                <button 
+                    onClick={copySummary}
+                    className="flex flex-col items-center justify-center gap-2 p-4 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition-colors"
+                >
+                    <Copy size={24} className="text-slate-600" />
+                    <span className="text-xs font-bold text-slate-800">Copier Résumé</span>
+                </button>
             </div>
             
-            <div className="p-4 border-t border-slate-100 bg-slate-50">
-              <button
-                onClick={handleUpload}
-                disabled={isUploading}
-                className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 active:scale-95 transition-all flex justify-center items-center gap-2"
-              >
-                {isUploading ? (
-                  <span className="animate-spin w-5 h-5 border-2 border-white/30 border-t-white rounded-full"></span>
-                ) : (
-                  <>
-                    <CheckCircle size={20} />
-                    Valider et Enregistrer
-                  </>
-                )}
-              </button>
-              <p className="text-[10px] text-center text-slate-400 mt-2">
-                Ceci remplacera la liste actuelle.
-              </p>
+            <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-xs text-slate-400">
+                <span>Présents: <b>{arrived}</b></span>
+                <span>Absents: <b>{absent}</b></span>
+                <span>Total: <b>{total}</b></span>
             </div>
-          </div>
-        )}
+        </div>
+        
+        <hr className="border-slate-200 mb-8" />
+
+        {/* SECTION IMPORTATION */}
+        <div className="opacity-80 hover:opacity-100 transition-opacity">
+            <div className="mb-2">
+            <h3 className="font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <Upload size={18} />
+                Importer une nouvelle liste
+            </h3>
+            <p className="text-xs text-slate-500 mb-3">
+                Attention, cela écrasera les données actuelles. Format: Table, Nom, Prénom, Mention.
+            </p>
+            
+            <textarea
+                className="w-full h-32 p-3 text-xs font-mono bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none mb-3 whitespace-pre"
+                placeholder={`1:BENEDICTION\tBAYEMI\tChristiane\tChristiane\n2\tDUPONT\tJean\tSerge`}
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+            />
+
+            <button
+                onClick={parseData}
+                className="w-full py-2 bg-slate-800 text-white rounded-lg font-medium text-sm hover:bg-slate-700 transition-colors mb-4"
+            >
+                Prévisualiser les données
+            </button>
+            </div>
+
+            {/* Step 3: Preview & Confirm */}
+            {error && (
+            <div className="bg-rose-50 text-rose-600 p-3 rounded-lg text-sm flex items-center gap-2 mb-4">
+                <AlertCircle size={16} />
+                {error}
+            </div>
+            )}
+
+            {parsedGuests.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-20">
+                <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-500 uppercase">{parsedGuests.length} Invités détectés</span>
+                </div>
+                <div className="max-h-60 overflow-y-auto">
+                <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-500 sticky top-0 shadow-sm">
+                    <tr>
+                        <th className="px-3 py-2 bg-slate-50">Nom Prénom</th>
+                        <th className="px-3 py-2 bg-slate-50">Table</th>
+                        <th className="px-3 py-2 bg-slate-50">Mention</th>
+                    </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                    {parsedGuests.map((g, i) => (
+                        <tr key={i}>
+                        <td className="px-3 py-2">
+                            <span className="font-bold">{g.lastName}</span> {g.firstName}
+                        </td>
+                        <td className="px-3 py-2">
+                            <span className="font-mono bg-slate-100 px-1 rounded">{g.tableNumber}</span>
+                            {g.description && <div className="text-[9px] text-slate-400">{g.description}</div>}
+                        </td>
+                        <td className="px-3 py-2 text-slate-400 truncate max-w-[100px]">{g.inviter}</td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+                </div>
+                
+                <div className="p-4 border-t border-slate-100 bg-slate-50">
+                <button
+                    onClick={handleUpload}
+                    disabled={isUploading}
+                    className="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 active:scale-95 transition-all flex justify-center items-center gap-2"
+                >
+                    {isUploading ? (
+                    <span className="animate-spin w-5 h-5 border-2 border-white/30 border-t-white rounded-full"></span>
+                    ) : (
+                    <>
+                        <CheckCircle size={20} />
+                        Valider et Enregistrer
+                    </>
+                    )}
+                </button>
+                <p className="text-[10px] text-center text-slate-400 mt-2">
+                    Ceci remplacera la liste actuelle.
+                </p>
+                </div>
+            </div>
+            )}
+
+            {/* Step 1: Firebase Setup */}
+            <div className="mt-8 bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+            <div 
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => setShowTutorial(!showTutorial)}
+            >
+                <div className="flex items-center gap-2 text-indigo-800 font-bold">
+                <Database size={18} />
+                <span>Configuration Firebase</span>
+                </div>
+                {showTutorial ? <ChevronUp size={18} className="text-indigo-600"/> : <ChevronDown size={18} className="text-indigo-600"/>}
+            </div>
+
+            {showTutorial && (
+                <div className="mt-3 text-sm text-indigo-900/80 space-y-2">
+                <p>Pour synchroniser les données en temps réel :</p>
+                <ol className="list-decimal list-inside space-y-1 ml-1 text-xs">
+                    <li>Allez sur <a href="https://console.firebase.google.com" target="_blank" className="underline font-bold">console.firebase.google.com</a></li>
+                    <li>Créez un projet et ajoutez une "App Web"</li>
+                    <li>Copiez la configuration (apiKey, etc.)</li>
+                    <li>Ouvrez le fichier <code>services/firebase.ts</code> dans votre code</li>
+                    <li>Collez la configuration à la place des valeurs par défaut.</li>
+                    <li>Une fois fait, rechargez cette page.</li>
+                </ol>
+                </div>
+            )}
+            </div>
+        </div>
       </div>
     </div>
   );
