@@ -40,110 +40,109 @@ const GuestCard: React.FC<GuestCardProps> = ({ guest, userRole, onToggleStatus, 
   return (
     <div 
       className={`
-        relative overflow-visible rounded-2xl border transition-all duration-300 mb-3
+        relative overflow-visible rounded-2xl border transition-all duration-300 flex flex-col justify-between
         ${isArrived 
           ? 'bg-emerald-50/50 border-emerald-200 shadow-sm' 
           : 'bg-white border-slate-100 shadow-sm hover:border-slate-300'
         }
       `}
     >
-      <div className="p-4 flex items-center justify-between">
-        {/* Left Info */}
-        <div className="flex-1 min-w-0 pr-4">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className={`font-bold text-lg truncate ${isArrived ? 'text-emerald-900' : 'text-slate-800'}`}>
-              {guest.firstName} <span className="uppercase">{guest.lastName}</span>
-            </h3>
-            {guest.plusOne && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">
-                +1
-              </span>
-            )}
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
-            {guest.description && (
-              <span className="flex items-center gap-1">
-                <Info size={12} />
-                {guest.description}
-              </span>
-            )}
-            <span className="flex items-center gap-1 text-slate-400">
-              via {guest.inviter}
-            </span>
-          </div>
-        </div>
+      <div className="p-3">
+        {/* Header: Name and Menu */}
+        <div className="flex justify-between items-start mb-2">
+           <div className="min-w-0 pr-1">
+              <h3 className={`font-bold text-sm leading-tight truncate ${isArrived ? 'text-emerald-900' : 'text-slate-800'}`}>
+                {guest.firstName}
+              </h3>
+              <h3 className={`font-bold text-sm leading-tight uppercase truncate ${isArrived ? 'text-emerald-900' : 'text-slate-800'}`}>
+                {guest.lastName}
+              </h3>
+              {guest.plusOne && (
+                <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-700">
+                  +1
+                </span>
+              )}
+           </div>
 
-        {/* Right Info: Table Badge & Actions */}
-        <div className="flex flex-col items-end gap-3">
-          <div className="flex items-center gap-1">
-            <div className={`
-              flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm
-              ${isArrived 
-                ? 'bg-white text-emerald-700 border border-emerald-100' 
-                : 'bg-slate-100 text-slate-600 border border-slate-200'
-              }
-            `}>
-              <Utensils size={12} />
-              <span className="whitespace-nowrap">Table {guest.tableNumber}</span>
-            </div>
-            
-            {/* Context Menu Button - ONLY FOR ADMIN */}
-            {userRole === 'admin' && (
-              <div className="relative" ref={menuRef}>
+           {userRole === 'admin' && (
+              <div className="relative -mt-1 -mr-1" ref={menuRef}>
                 <button 
                   onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
                   className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 active:bg-slate-200 transition-colors"
                 >
-                  <MoreVertical size={16} />
+                  <MoreVertical size={14} />
                 </button>
-
                 {/* Dropdown Menu */}
                 {showMenu && (
-                  <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-right">
+                  <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-xl border border-slate-100 z-50 overflow-hidden">
                     <button 
                       onClick={(e) => handleMenuAction(e, 'edit')}
-                      className="w-full text-left px-4 py-3 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 border-b border-slate-50"
+                      className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 border-b border-slate-50"
                     >
-                      <Edit size={14} />
-                      Changer table
+                      <Edit size={12} />
+                      Table
                     </button>
                     <button 
                       onClick={(e) => handleMenuAction(e, 'delete')}
-                      className="w-full text-left px-4 py-3 text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                      className="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2"
                     >
-                      <Trash2 size={14} />
-                      Désactiver
+                      <Trash2 size={12} />
+                      Supprimer
                     </button>
                   </div>
                 )}
               </div>
             )}
-          </div>
+        </div>
+        
+        {/* Info Line */}
+        <div className="flex flex-col gap-0.5 text-[10px] text-slate-500 mb-3">
+            {guest.description && (
+              <span className="flex items-center gap-1 truncate">
+                <Info size={10} />
+                {guest.description}
+              </span>
+            )}
+            <span className="text-slate-400 truncate">
+              {guest.inviter}
+            </span>
+        </div>
 
-          {/* Toggle Button */}
-          <button
+        {/* Bottom Action Row */}
+        <div className="flex items-end justify-between mt-auto">
+             <div className={`
+              flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold shadow-sm max-w-[60%]
+              ${isArrived 
+                ? 'bg-white text-emerald-700 border border-emerald-100' 
+                : 'bg-slate-100 text-slate-600 border border-slate-200'
+              }
+            `}>
+              <Utensils size={10} />
+              <span className="truncate">{guest.tableNumber}</span>
+            </div>
+
+            <button
             onClick={(e) => {
-              e.stopPropagation(); // EMPÊCHE LA PROPAGATION DU CLIC
+              e.stopPropagation();
               onToggleStatus(guest.id, isArrived);
             }}
             className={`
-              flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 active:scale-90
+              flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 active:scale-90
               ${isArrived 
-                ? 'bg-emerald-500 text-white shadow-emerald-200 shadow-lg' 
+                ? 'bg-emerald-500 text-white shadow-emerald-200 shadow-md' 
                 : 'bg-slate-100 text-slate-300 hover:bg-slate-200'
               }
             `}
           >
-            <Check size={24} strokeWidth={3} className={`transition-all duration-300 ${isArrived ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`} />
-            <div className={`absolute w-4 h-4 rounded-full bg-slate-300 transition-all duration-300 ${isArrived ? 'opacity-0 scale-150' : 'opacity-100 scale-100'}`} />
+            <Check size={18} strokeWidth={3} className={`transition-all duration-200 ${isArrived ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`} />
+            <div className={`absolute w-3 h-3 rounded-full bg-slate-300 transition-all duration-200 ${isArrived ? 'opacity-0 scale-150' : 'opacity-100 scale-100'}`} />
           </button>
         </div>
       </div>
       
-      {/* Arrived Timestamp overlay (optional subtle detail) */}
-      {isArrived && guest.arrivedAt && (
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500 opacity-20"></div>
+      {/* Arrived Overlay */}
+      {isArrived && (
+        <div className="absolute inset-0 border-2 border-emerald-500 rounded-2xl pointer-events-none opacity-10"></div>
       )}
     </div>
   );

@@ -24,14 +24,14 @@ const MOCK_GUESTS: Guest[] = [
   { id: '10', firstName: 'Zinedine', lastName: 'Zidane', tableNumber: 1, inviter: 'Serge', description: 'Parrain', hasArrived: false, isAbsent: false },
 ];
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// Removed delay function for instant interactions
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, 0));
 
 // ==========================================
 // FETCH GUESTS
 // ==========================================
 export const fetchGuests = async (): Promise<Guest[]> => {
   if (USE_MOCK_DATA) {
-    await delay(600);
     const stored = localStorage.getItem('demo_guests');
     if (stored) return JSON.parse(stored);
     localStorage.setItem('demo_guests', JSON.stringify(MOCK_GUESTS));
@@ -53,7 +53,6 @@ export const fetchGuests = async (): Promise<Guest[]> => {
 // ==========================================
 export const updateGuestStatus = async (guestId: string, hasArrived: boolean): Promise<void> => {
   if (USE_MOCK_DATA) {
-    await delay(300);
     const stored = localStorage.getItem('demo_guests');
     if (stored) {
       const guests: Guest[] = JSON.parse(stored);
@@ -73,11 +72,21 @@ export const updateGuestStatus = async (guestId: string, hasArrived: boolean): P
   } else {
     if (!db) return;
     const guestRef = doc(db, "guests", guestId);
-    await updateDoc(guestRef, { 
+    
+    // Construct updates object carefully to avoid 'undefined'
+    const updates: any = { 
       hasArrived, 
-      isAbsent: hasArrived ? false : undefined,
       arrivedAt: hasArrived ? new Date().toISOString() : null 
-    });
+    };
+    
+    // Only explicitly set isAbsent to false if the guest has arrived.
+    // If checking out (hasArrived=false), we leave isAbsent as is (undefined key means "don't update" in merge).
+    // Sending { isAbsent: undefined } causes Firestore to crash.
+    if (hasArrived) {
+      updates.isAbsent = false;
+    }
+
+    await updateDoc(guestRef, updates);
   }
 };
 
@@ -86,7 +95,6 @@ export const updateGuestStatus = async (guestId: string, hasArrived: boolean): P
 // ==========================================
 export const addGuest = async (guest: Omit<Guest, 'id'>): Promise<Guest> => {
   if (USE_MOCK_DATA) {
-    await delay(400);
     const stored = localStorage.getItem('demo_guests');
     const guests: Guest[] = stored ? JSON.parse(stored) : MOCK_GUESTS;
     const newGuest: Guest = { ...guest, id: `manual_${Date.now()}` };
@@ -105,7 +113,6 @@ export const addGuest = async (guest: Omit<Guest, 'id'>): Promise<Guest> => {
 // ==========================================
 export const updateGuestDetails = async (guestId: string, updates: Partial<Guest>): Promise<void> => {
   if (USE_MOCK_DATA) {
-    await delay(300);
     const stored = localStorage.getItem('demo_guests');
     if (stored) {
       const guests: Guest[] = JSON.parse(stored);
@@ -124,7 +131,6 @@ export const updateGuestDetails = async (guestId: string, updates: Partial<Guest
 // ==========================================
 export const deleteGuest = async (guestId: string): Promise<void> => {
   if (USE_MOCK_DATA) {
-    await delay(300);
     const stored = localStorage.getItem('demo_guests');
     if (stored) {
       const guests: Guest[] = JSON.parse(stored);

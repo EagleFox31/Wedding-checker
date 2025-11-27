@@ -90,41 +90,26 @@ const App: React.FC = () => {
   };
 
   const toggleGuestStatus = async (id: string, currentStatus: boolean) => {
-    const performUpdate = async () => {
-      // Optimistic UI Update
-      const newStatus = !currentStatus;
-      
-      setGuests(prev => prev.map(g => 
-        g.id === id 
-          ? { 
-              ...g, 
-              hasArrived: newStatus, 
-              isAbsent: newStatus ? false : g.isAbsent, // If arrived, cannot be absent
-              arrivedAt: newStatus ? new Date().toISOString() : undefined 
-            } 
-          : g
-      ));
+    const newStatus = !currentStatus;
+    
+    // Optimistic UI Update - INSTANT
+    setGuests(prev => prev.map(g => 
+      g.id === id 
+        ? { 
+            ...g, 
+            hasArrived: newStatus, 
+            isAbsent: newStatus ? false : g.isAbsent, 
+            arrivedAt: newStatus ? new Date().toISOString() : undefined 
+          } 
+        : g
+    ));
 
-      try {
-        await guestService.updateGuestStatus(id, newStatus);
-      } catch (error) {
-        console.error("Failed to update status", error);
-        // Revert if failed
-        setGuests(prev => prev.map(g => g.id === id ? { ...g, hasArrived: currentStatus } : g));
-      }
-    };
-
-    // SÉCURITÉ : Si l'invité est déjà arrivé (currentStatus = true) et qu'on veut le décocher
-    if (currentStatus) {
-      // On utilise un setTimeout pour laisser le clic se terminer visuellement
-      setTimeout(() => {
-        if (window.confirm("Oups ? Voulez-vous annuler l'entrée de cet invité ?")) {
-          performUpdate();
-        }
-      }, 50);
-    } else {
-      // Cocher (Entrée) : Immédiat
-      performUpdate();
+    try {
+      await guestService.updateGuestStatus(id, newStatus);
+    } catch (error) {
+      console.error("Failed to update status", error);
+      // Revert if failed
+      setGuests(prev => prev.map(g => g.id === id ? { ...g, hasArrived: currentStatus } : g));
     }
   };
 
@@ -455,18 +440,21 @@ const App: React.FC = () => {
               </span>
             </div>
 
-            {filteredGuests.map(guest => (
-              <GuestCard 
-                key={guest.id} 
-                guest={guest} 
-                userRole={userRole}
-                onToggleStatus={toggleGuestStatus} 
-                onEdit={setEditingGuest}
-                onDelete={handleDeleteGuest}
-              />
-            ))}
+            {/* Changed from simple list to grid-cols-2 for compact view */}
+            <div className="grid grid-cols-2 gap-3">
+              {filteredGuests.map(guest => (
+                <GuestCard 
+                  key={guest.id} 
+                  guest={guest} 
+                  userRole={userRole}
+                  onToggleStatus={toggleGuestStatus} 
+                  onEdit={setEditingGuest}
+                  onDelete={handleDeleteGuest}
+                />
+              ))}
+            </div>
             
-            <div className="h-4 text-center pt-4">
+            <div className="h-4 text-center pt-4 col-span-2">
               <span className="text-[10px] text-slate-300">●</span>
             </div>
           </div>
