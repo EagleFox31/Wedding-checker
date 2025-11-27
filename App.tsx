@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, RefreshCw, X, Settings, Utensils, Users, LayoutList, LayoutGrid, Plus, Lock, LogOut, ChevronRight, Download, CalendarClock, ListTodo, Crown, HeartHandshake } from 'lucide-react';
+import { Search, Filter, RefreshCw, X, Settings, Utensils, Users, LayoutList, LayoutGrid, Plus, Lock, LogOut, ChevronRight, Download, CalendarClock, ListTodo, Crown, HeartHandshake, QrCode } from 'lucide-react';
 import { Guest, GuestFilter, DashboardStats, UserRole, TimelineItem } from './types';
 import * as guestService from './services/guestService';
 import * as planningService from './services/planningService';
@@ -10,13 +10,15 @@ import TableView from './components/TableView';
 import GuestForm from './components/GuestForm';
 import PlanningView from './components/PlanningView';
 import PlanningForm from './components/PlanningForm';
+import ShareQrModal from './components/ShareQrModal';
 
 const App: React.FC = () => {
   // Auth State
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [pinError, setPinError] = useState(false);
   const [pinInput, setPinInput] = useState('');
-  const [targetRole, setTargetRole] = useState<'admin' | 'planner' | null>(null); // To know which pin to check
+  const [targetRole, setTargetRole] = useState<'admin' | 'planner' | null>(null); // Removed hostess from target roles requiring PIN
+  const [isGuestLinkMode, setIsGuestLinkMode] = useState(false); // New state for restricted guest view
 
   // App State
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -37,6 +39,7 @@ const App: React.FC = () => {
   const [showGuestForm, setShowGuestForm] = useState(false);
   const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Planning Modal States
   const [showPlanningForm, setShowPlanningForm] = useState(false);
@@ -67,8 +70,15 @@ const App: React.FC = () => {
     setDeferredPrompt(null);
   };
 
-  // Check Local Storage for Session
+  // Check Local Storage for Session AND URL Params for Guest Mode
   useEffect(() => {
+    // 1. Check URL for Guest Mode
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'guest') {
+        setIsGuestLinkMode(true);
+    }
+
+    // 2. Check Session
     const savedRole = localStorage.getItem('wedding_app_role') as UserRole | null;
     if (savedRole) {
       setUserRole(savedRole);
@@ -158,6 +168,9 @@ const App: React.FC = () => {
     setPinInput('');
     setTargetRole(null);
     setActiveModule('checkin');
+    
+    // If we were in guest link mode, ensure we stay in guest link mode visually or reset URL? 
+    // Usually standard behavior is fine, but let's keep the isGuestLinkMode state as is.
   };
 
   // ------------------------------------------------------------------
@@ -350,55 +363,61 @@ const App: React.FC = () => {
                     <ChevronRight className="text-slate-300 group-hover:text-wedding-gold transition-colors" />
                     </button>
 
-                    <div className="relative flex py-2 items-center">
-                        <div className="flex-grow border-t border-slate-100"></div>
-                        <span className="flex-shrink-0 mx-4 text-[10px] text-slate-300 font-bold uppercase tracking-wider">Staff & Admin</span>
-                        <div className="flex-grow border-t border-slate-100"></div>
-                    </div>
-
-                    <button 
-                    onClick={() => handleLogin('hostess')}
-                    className="w-full py-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-xl flex items-center justify-between px-6 group transition-all"
-                    >
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
-                        <Users size={16} />
-                        </div>
-                        <div className="text-left">
-                        <p className="font-bold text-sm text-slate-800">Mode Accueil</p>
-                        </div>
-                    </div>
-                    <ChevronRight className="text-emerald-300 group-hover:text-emerald-500 transition-colors" size={16} />
-                    </button>
-
-                    <button 
-                    onClick={() => { setTargetRole('planner'); setPinInput(''); }}
-                    className="w-full py-3 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-xl flex items-center justify-between px-6 group transition-all"
-                    >
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
-                        <CalendarClock size={16} />
-                        </div>
-                        <div className="text-left">
-                        <p className="font-bold text-sm text-slate-800">Wedding Planner</p>
-                        </div>
-                    </div>
-                    <ChevronRight className="text-indigo-300 group-hover:text-indigo-500 transition-colors" size={16} />
-                    </button>
-
-                    <button 
-                        onClick={() => { setTargetRole('admin'); setPinInput(''); }}
-                        className="w-full py-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl flex items-center justify-between px-6 group transition-all"
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-slate-200 text-slate-600 rounded-full flex items-center justify-center">
-                                <Crown size={16} />
+                    {/* HIDE THESE IF GUEST LINK MODE IS ACTIVE */}
+                    {!isGuestLinkMode && (
+                        <>
+                            <div className="relative flex py-2 items-center">
+                                <div className="flex-grow border-t border-slate-100"></div>
+                                <span className="flex-shrink-0 mx-4 text-[10px] text-slate-300 font-bold uppercase tracking-wider">Staff & Admin</span>
+                                <div className="flex-grow border-t border-slate-100"></div>
                             </div>
-                            <div className="text-left">
-                                <p className="font-bold text-sm text-slate-800">Admin</p>
+
+                            <button 
+                            onClick={() => handleLogin('hostess')}
+                            className="w-full py-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-xl flex items-center justify-between px-6 group transition-all"
+                            >
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                                <Users size={16} />
+                                </div>
+                                <div className="text-left">
+                                <p className="font-bold text-sm text-slate-800">Mode Accueil</p>
+                                </div>
                             </div>
-                        </div>
-                    </button>
+                            <ChevronRight className="text-emerald-300 group-hover:text-emerald-500 transition-colors" size={16} />
+                            </button>
+
+                            <button 
+                            onClick={() => { setTargetRole('planner'); setPinInput(''); }}
+                            className="w-full py-3 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-xl flex items-center justify-between px-6 group transition-all"
+                            >
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
+                                <CalendarClock size={16} />
+                                </div>
+                                <div className="text-left">
+                                <p className="font-bold text-sm text-slate-800">Wedding Planner</p>
+                                </div>
+                            </div>
+                            <Lock className="text-indigo-300 group-hover:text-indigo-500 transition-colors" size={16} />
+                            </button>
+
+                            <button 
+                                onClick={() => { setTargetRole('admin'); setPinInput(''); }}
+                                className="w-full py-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl flex items-center justify-between px-6 group transition-all"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-slate-200 text-slate-600 rounded-full flex items-center justify-center">
+                                        <Crown size={16} />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="font-bold text-sm text-slate-800">Admin</p>
+                                    </div>
+                                </div>
+                                <Lock className="text-slate-400 group-hover:text-slate-600 transition-colors" size={16} />
+                            </button>
+                        </>
+                    )}
                 </>
             )}
 
@@ -466,6 +485,16 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="flex gap-2">
+              {/* QR Code Share Button (Staff only) */}
+              {userRole !== 'guest' && (
+                  <button 
+                    onClick={() => setShowShareModal(true)} 
+                    className="p-2 rounded-full bg-blue-50 border border-blue-100 text-blue-600 hover:bg-blue-100 transition-all active:scale-95"
+                  >
+                    <QrCode size={18} />
+                  </button>
+              )}
+
               {showInstallBtn && (
                  <button onClick={handleInstallClick} className="p-2 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 animate-pulse">
                   <Download size={18} />
@@ -605,6 +634,7 @@ const App: React.FC = () => {
       )}
 
       {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} guests={guests} />}
+      {showShareModal && <ShareQrModal onClose={() => setShowShareModal(false)} />}
       
       {(showGuestForm || editingGuest) && (
         <GuestForm 
