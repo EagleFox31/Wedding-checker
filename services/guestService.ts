@@ -12,16 +12,16 @@ const USE_MOCK_DATA = !db;
 // MOCK DATA GENERATOR
 // ==========================================
 const MOCK_GUESTS: Guest[] = [
-  { id: '1', firstName: 'Jean', lastName: 'Dupont', tableNumber: 1, inviter: 'Marié', description: 'Témoin', hasArrived: true, arrivedAt: new Date().toISOString(), plusOne: true, isAbsent: false },
-  { id: '2', firstName: 'Marie', lastName: 'Curie', tableNumber: 1, inviter: 'Mariée', description: 'Tante', hasArrived: false, isAbsent: false },
+  { id: '1', firstName: 'Jean', lastName: 'Dupont', tableNumber: 1, inviter: 'Serge', description: 'Témoin', hasArrived: true, arrivedAt: new Date().toISOString(), plusOne: true, isAbsent: false },
+  { id: '2', firstName: 'Marie', lastName: 'Curie', tableNumber: 1, inviter: 'Christiane', description: 'Tante', hasArrived: false, isAbsent: false },
   { id: '3', firstName: 'Paul', lastName: 'Martin', tableNumber: 2, inviter: 'Parents', description: 'Ami enfance', hasArrived: false, isAbsent: false },
-  { id: '4', firstName: 'Sophie', lastName: 'Bernard', tableNumber: 2, inviter: 'Marié', description: 'Collègue', hasArrived: false, isAbsent: false },
-  { id: '5', firstName: 'Luc', lastName: 'Besson', tableNumber: 'Table d\'Honneur', inviter: 'Mariée', description: 'Oncle', hasArrived: true, arrivedAt: new Date().toISOString(), isAbsent: false },
-  { id: '6', firstName: 'Emma', lastName: 'Watson', tableNumber: 3, inviter: 'Marié', description: 'Cousine éloignée', hasArrived: false, isAbsent: false },
-  { id: '7', firstName: 'Thomas', lastName: 'Pesquet', tableNumber: 3, inviter: 'Marié', description: 'Ami lycée', hasArrived: false, isAbsent: false },
-  { id: '8', firstName: 'Céline', lastName: 'Dion', tableNumber: 4, inviter: 'Mariée', description: 'Voisine', hasArrived: false, isAbsent: true },
+  { id: '4', firstName: 'Sophie', lastName: 'Bernard', tableNumber: 2, inviter: 'Serge', description: 'Collègue', hasArrived: false, isAbsent: false },
+  { id: '5', firstName: 'Luc', lastName: 'Besson', tableNumber: 'Table d\'Honneur', inviter: 'Christiane', description: 'Oncle', hasArrived: true, arrivedAt: new Date().toISOString(), isAbsent: false },
+  { id: '6', firstName: 'Emma', lastName: 'Watson', tableNumber: 3, inviter: 'Serge', description: 'Cousine éloignée', hasArrived: false, isAbsent: false },
+  { id: '7', firstName: 'Thomas', lastName: 'Pesquet', tableNumber: 3, inviter: 'Serge', description: 'Ami lycée', hasArrived: false, isAbsent: false },
+  { id: '8', firstName: 'Céline', lastName: 'Dion', tableNumber: 4, inviter: 'Christiane', description: 'Voisine', hasArrived: false, isAbsent: true },
   { id: '9', firstName: 'Omar', lastName: 'Sy', tableNumber: 4, inviter: 'Parents', description: 'Ami famille', hasArrived: true, arrivedAt: new Date().toISOString(), isAbsent: false },
-  { id: '10', firstName: 'Zinedine', lastName: 'Zidane', tableNumber: 1, inviter: 'Marié', description: 'Parrain', hasArrived: false, isAbsent: false },
+  { id: '10', firstName: 'Zinedine', lastName: 'Zidane', tableNumber: 1, inviter: 'Serge', description: 'Parrain', hasArrived: false, isAbsent: false },
 ];
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));

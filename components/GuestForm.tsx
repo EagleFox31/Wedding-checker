@@ -14,7 +14,7 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
     firstName: '',
     lastName: '',
     tableNumber: '',
-    inviter: 'Marié',
+    inviter: 'Serge',
     description: '',
     plusOne: false,
     hasArrived: false,
@@ -116,8 +116,8 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
                 value={formData.inviter}
                 onChange={e => setFormData({...formData, inviter: e.target.value})}
               >
-                <option value="Marié">Marié</option>
-                <option value="Mariée">Mariée</option>
+                <option value="Serge">Serge (Marié)</option>
+                <option value="Christiane">Christiane (Mariée)</option>
                 <option value="Parents">Parents</option>
                 <option value="Autre">Autre</option>
               </select>

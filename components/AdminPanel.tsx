@@ -71,7 +71,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
           firstName: firstName,
           lastName: lastName,
           tableNumber: tableNumber,
-          inviter: mention || 'Mariés',
+          inviter: mention || 'Serge & Christiane',
           description: description, // On met le nom de la table (Benediction) en description
           hasArrived: false,
           isAbsent: false,
