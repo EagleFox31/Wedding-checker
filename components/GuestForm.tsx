@@ -122,15 +122,30 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
                 <option value="Autre">Autre</option>
               </select>
             </div>
-            <div className="flex items-center pt-5">
+            
+            <div className="flex flex-col justify-center gap-3">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                   checked={formData.plusOne}
                   onChange={e => setFormData({...formData, plusOne: e.target.checked})}
                 />
-                <span className="text-sm font-medium text-slate-700">Vient avec +1</span>
+                <span className="text-xs font-medium text-slate-700">Vient avec +1</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded border-slate-300 text-rose-500 focus:ring-rose-500"
+                  checked={formData.isAbsent}
+                  onChange={e => setFormData({
+                    ...formData, 
+                    isAbsent: e.target.checked,
+                    hasArrived: e.target.checked ? false : formData.hasArrived // Force not arrived if absent
+                  })}
+                />
+                <span className="text-xs font-medium text-rose-600">Ne viendra pas (Absent)</span>
               </label>
             </div>
           </div>

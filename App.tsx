@@ -118,6 +118,8 @@ const App: React.FC = () => {
     const newStatus = !currentStatus;
     
     // Optimistic UI Update - INSTANT
+    // Note: If guest was absent (isAbsent=true) and we toggle check (newStatus=true),
+    // they should become arrived and NOT absent.
     setGuests(prev => prev.map(g => 
       g.id === id 
         ? { 
@@ -135,6 +137,29 @@ const App: React.FC = () => {
       console.error("Failed to update status", error);
       // Revert if failed
       setGuests(prev => prev.map(g => g.id === id ? { ...g, hasArrived: currentStatus } : g));
+    }
+  };
+
+  const handleToggleAbsent = async (id: string, currentAbsent: boolean) => {
+    const newAbsent = !currentAbsent;
+
+    // Optimistic Update
+    setGuests(prev => prev.map(g => 
+      g.id === id 
+        ? { 
+            ...g, 
+            isAbsent: newAbsent,
+            hasArrived: newAbsent ? false : g.hasArrived, // If becoming absent, they are not here
+            arrivedAt: newAbsent ? undefined : g.arrivedAt
+          } 
+        : g
+    ));
+
+    try {
+      await guestService.setGuestAbsent(id, newAbsent);
+    } catch (error) {
+       console.error("Failed to update absent status", error);
+       loadGuests(); // Reload to be safe
     }
   };
 
@@ -332,8 +357,12 @@ const App: React.FC = () => {
                 <p className="text-slate-500 text-xs font-medium uppercase tracking-wide">
                   {userRole === 'admin' ? 'Espace Organisateur' : 'Équipe d\'Accueil'}
                 </p>
-                <button onClick={handleLogout} className="text-[10px] text-slate-300 hover:text-slate-500 underline flex items-center gap-1">
-                   (Changer)
+                <button 
+                  onClick={handleLogout} 
+                  className="ml-2 p-1.5 rounded-full bg-rose-50 border border-rose-100 text-rose-500 hover:bg-rose-100 transition-colors active:scale-95"
+                  title="Déconnexion"
+                >
+                  <LogOut size={14} strokeWidth={2.5} />
                 </button>
               </div>
             </div>
@@ -496,7 +525,8 @@ const App: React.FC = () => {
                   key={guest.id} 
                   guest={guest} 
                   userRole={userRole}
-                  onToggleStatus={toggleGuestStatus} 
+                  onToggleStatus={toggleGuestStatus}
+                  onToggleAbsent={handleToggleAbsent} 
                   onEdit={setEditingGuest}
                   onDelete={handleDeleteGuest}
                 />

@@ -16,7 +16,7 @@ const MOCK_GUESTS: Guest[] = [
   { id: '2', firstName: 'Marie', lastName: 'Curie', tableNumber: 1, inviter: 'Christiane', description: 'Tante', hasArrived: false, isAbsent: false },
   { id: '3', firstName: 'Paul', lastName: 'Martin', tableNumber: 2, inviter: 'Parents', description: 'Ami enfance', hasArrived: false, isAbsent: false },
   { id: '4', firstName: 'Sophie', lastName: 'Bernard', tableNumber: 2, inviter: 'Serge', description: 'Collègue', hasArrived: false, isAbsent: false },
-  { id: '5', firstName: 'Luc', lastName: 'Besson', tableNumber: 'Table d\'Honneur', inviter: 'Christiane', description: 'Oncle', hasArrived: true, arrivedAt: new Date().toISOString(), isAbsent: false },
+  { id: '5', firstName: 'Luc', lastName: 'Besson', tableNumber: "Table d'Honneur", inviter: 'Christiane', description: 'Oncle', hasArrived: true, arrivedAt: new Date().toISOString(), isAbsent: false },
   { id: '6', firstName: 'Emma', lastName: 'Watson', tableNumber: 3, inviter: 'Serge', description: 'Cousine éloignée', hasArrived: false, isAbsent: false },
   { id: '7', firstName: 'Thomas', lastName: 'Pesquet', tableNumber: 3, inviter: 'Serge', description: 'Ami lycée', hasArrived: false, isAbsent: false },
   { id: '8', firstName: 'Céline', lastName: 'Dion', tableNumber: 4, inviter: 'Christiane', description: 'Voisine', hasArrived: false, isAbsent: true },
@@ -80,10 +80,46 @@ export const updateGuestStatus = async (guestId: string, hasArrived: boolean): P
     };
     
     // Only explicitly set isAbsent to false if the guest has arrived.
-    // If checking out (hasArrived=false), we leave isAbsent as is (undefined key means "don't update" in merge).
-    // Sending { isAbsent: undefined } causes Firestore to crash.
     if (hasArrived) {
       updates.isAbsent = false;
+    }
+
+    await updateDoc(guestRef, updates);
+  }
+};
+
+// ==========================================
+// SET ABSENT STATUS
+// ==========================================
+export const setGuestAbsent = async (guestId: string, isAbsent: boolean): Promise<void> => {
+  if (USE_MOCK_DATA) {
+    const stored = localStorage.getItem('demo_guests');
+    if (stored) {
+      const guests: Guest[] = JSON.parse(stored);
+      const updatedGuests = guests.map(g => {
+        if (g.id === guestId) {
+          return {
+            ...g,
+            isAbsent: isAbsent,
+            hasArrived: isAbsent ? false : g.hasArrived, // If absent, cannot be arrived
+            arrivedAt: isAbsent ? undefined : g.arrivedAt
+          };
+        }
+        return g;
+      });
+      localStorage.setItem('demo_guests', JSON.stringify(updatedGuests));
+    }
+  } else {
+    if (!db) return;
+    const guestRef = doc(db, "guests", guestId);
+    
+    const updates: any = { 
+      isAbsent: isAbsent
+    };
+
+    if (isAbsent) {
+      updates.hasArrived = false;
+      updates.arrivedAt = null;
     }
 
     await updateDoc(guestRef, updates);
