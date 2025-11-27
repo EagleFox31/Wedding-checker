@@ -11,17 +11,20 @@ export interface Guest {
   plusOne?: boolean; // Vient avec quelqu'un ?
 }
 
+export type PlanningCategory = 'matin' | 'mairie' | 'cocktail' | 'eglise' | 'soiree';
+
 export interface TimelineItem {
   id: string;
+  category: PlanningCategory;
   time: string;
   title: string;
   description?: string;
   completed: boolean;
-  isHighlight?: boolean; // Pour les moments clés (Entrée mariés, gâteau...)
+  isHighlight?: boolean; // Pour les moments clés
 }
 
 export type GuestFilter = 'all' | 'arrived' | 'pending' | 'absent';
-export type UserRole = 'admin' | 'hostess' | 'planner';
+export type UserRole = 'admin' | 'hostess' | 'planner' | 'guest';
 
 export interface DashboardStats {
   total: number;

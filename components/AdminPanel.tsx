@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Upload, AlertCircle, CheckCircle, Database, Copy, ChevronDown, ChevronUp, FileSpreadsheet, Download } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle, Database, Copy, ChevronDown, ChevronUp, FileSpreadsheet, Download, RefreshCw, CalendarRange } from 'lucide-react';
 import { Guest } from '../types';
 import * as guestService from '../services/guestService';
+import * as planningService from '../services/planningService';
 // @ts-ignore
 import * as XLSX from 'xlsx';
 
@@ -16,6 +17,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [isResettingPlanning, setIsResettingPlanning] = useState(false);
 
   // Stats pour le rapport
   const total = currentGuests.length;
@@ -114,6 +116,23 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
     }
   };
 
+  const handleResetPlanning = async () => {
+      if (!window.confirm("Ceci va écraser tout le planning actuel avec le programme officiel de Christiane & Serge. Continuer ?")) {
+          return;
+      }
+      setIsResettingPlanning(true);
+      try {
+          await planningService.overwritePlanningWithDefaults();
+          alert("Planning mis à jour avec succès !");
+          window.location.reload();
+      } catch (e) {
+          alert("Erreur lors de la mise à jour");
+          console.error(e);
+      } finally {
+          setIsResettingPlanning(false);
+      }
+  };
+
   const downloadExcel = () => {
     // 1. Préparer les données
     const data = currentGuests.map(g => ({
@@ -165,6 +184,25 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 pb-20">
+
+        {/* SECTION CONFIGURATION */}
+        <div className="bg-white border border-slate-200 rounded-xl p-5 mb-8 shadow-sm">
+            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <CalendarRange size={20} className="text-blue-600" />
+                Configuration du Programme
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+                Si les étapes du mariage ne s'affichent pas correctement ou ont changé.
+            </p>
+             <button 
+                onClick={handleResetPlanning}
+                disabled={isResettingPlanning}
+                className="w-full flex items-center justify-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-xl hover:bg-blue-100 transition-colors text-blue-700 font-bold text-xs"
+            >
+                {isResettingPlanning ? <RefreshCw className="animate-spin" size={16} /> : <RefreshCw size={16} />}
+                Recharger le Programme Officiel (Christiane & Serge)
+            </button>
+        </div>
 
         {/* SECTION RAPPORT (FIN EVENT) */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 mb-8 shadow-sm">

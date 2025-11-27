@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, RefreshCw, X, Settings, Utensils, Users, LayoutList, LayoutGrid, Plus, Lock, LogOut, ChevronRight, Download, CalendarClock, ListTodo, Crown } from 'lucide-react';
+import { Search, Filter, RefreshCw, X, Settings, Utensils, Users, LayoutList, LayoutGrid, Plus, Lock, LogOut, ChevronRight, Download, CalendarClock, ListTodo, Crown, HeartHandshake } from 'lucide-react';
 import { Guest, GuestFilter, DashboardStats, UserRole, TimelineItem } from './types';
 import * as guestService from './services/guestService';
 import * as planningService from './services/planningService';
@@ -73,7 +73,7 @@ const App: React.FC = () => {
     if (savedRole) {
       setUserRole(savedRole);
       // Default view based on role
-      if (savedRole === 'planner') setActiveModule('planning');
+      if (savedRole === 'planner' || savedRole === 'guest') setActiveModule('planning');
     }
   }, []);
 
@@ -148,7 +148,7 @@ const App: React.FC = () => {
   const handleLogin = (role: UserRole) => {
     setUserRole(role);
     localStorage.setItem('wedding_app_role', role);
-    if (role === 'planner') setActiveModule('planning');
+    if (role === 'planner' || role === 'guest') setActiveModule('planning');
     else setActiveModule('checkin');
   };
 
@@ -164,6 +164,9 @@ const App: React.FC = () => {
   // GUEST LOGIC
   // ------------------------------------------------------------------
   const toggleGuestStatus = async (id: string, currentStatus: boolean) => {
+    // Read only for guests
+    if (userRole === 'guest') return;
+
     const newStatus = !currentStatus;
     setGuests(prev => prev.map(g => 
       g.id === id 
@@ -183,6 +186,8 @@ const App: React.FC = () => {
   };
 
   const handleToggleAbsent = async (id: string, currentAbsent: boolean) => {
+    if (userRole === 'guest') return;
+    
     const newAbsent = !currentAbsent;
     setGuests(prev => prev.map(g => 
       g.id === id 
@@ -229,6 +234,9 @@ const App: React.FC = () => {
   // PLANNING LOGIC
   // ------------------------------------------------------------------
   const togglePlanningItem = async (id: string, current: boolean) => {
+      // Guests cannot toggle items
+      if (userRole === 'guest') return;
+
       const newState = !current;
       setPlanningItems(prev => prev.map(i => i.id === id ? { ...i, completed: newState } : i));
       try {
@@ -283,11 +291,6 @@ const App: React.FC = () => {
     });
   }, [guests, searchQuery, filter]);
 
-  const quickFilters = useMemo(() => {
-    const inviters = Array.from(new Set(guests.map(g => g.inviter))).sort();
-    return { inviters };
-  }, [guests]);
-
   const stats: DashboardStats = useMemo(() => {
     const total = guests.length;
     const arrived = guests.filter(g => g.hasArrived).length;
@@ -303,9 +306,17 @@ const App: React.FC = () => {
     return (
       <div className="h-[100dvh] w-full bg-slate-50 flex items-center justify-center p-6">
         <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
-          <div className="p-8 text-center bg-slate-900 text-white">
-            <h1 className="font-serif text-3xl mb-2">Bienvenue</h1>
-            <p className="text-slate-400 text-sm">Mariage de Serge & Christiane</p>
+          <div className="p-8 text-center bg-slate-900 text-white relative overflow-hidden">
+             {/* Decorative circles */}
+            <div className="absolute top-0 left-0 w-20 h-20 bg-white/5 rounded-full -translate-x-10 -translate-y-10"></div>
+            <div className="absolute bottom-0 right-0 w-32 h-32 bg-wedding-gold/10 rounded-full translate-x-10 translate-y-10"></div>
+            
+            <h1 className="font-serif text-2xl mb-1 relative z-10">Christiane & Serge</h1>
+            <p className="text-wedding-gold text-xs italic font-serif mb-4 relative z-10">
+                « Celui qui trouve une femme a trouvé le bonheur »
+                <br/>
+                <span className="opacity-70 text-[10px] not-italic sans-serif">Prov. 18:22</span>
+            </p>
           </div>
           
           <div className="p-6 space-y-3">
@@ -315,62 +326,79 @@ const App: React.FC = () => {
                     {showInstallBtn && (
                     <button 
                         onClick={handleInstallClick}
-                        className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl shadow-lg shadow-indigo-200 font-bold flex items-center justify-center gap-2 animate-pulse mb-4"
+                        className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200 font-bold flex items-center justify-center gap-2 animate-pulse mb-4"
                     >
                         <Download size={20} />
                         Installer l'application
                     </button>
                     )}
 
+                    {/* BOUTON INVITE */}
                     <button 
-                    onClick={() => handleLogin('hostess')}
-                    className="w-full py-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-xl flex items-center justify-between px-6 group transition-all"
+                    onClick={() => handleLogin('guest')}
+                    className="w-full py-4 bg-white border-2 border-slate-100 hover:border-wedding-gold/50 rounded-xl flex items-center justify-between px-6 group transition-all shadow-sm"
                     >
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
-                        <Users size={20} />
+                        <div className="w-10 h-10 bg-wedding-gold/20 text-yellow-700 rounded-full flex items-center justify-center">
+                        <HeartHandshake size={20} />
                         </div>
                         <div className="text-left">
-                        <p className="font-bold text-slate-800">Mode Accueil</p>
-                        <p className="text-xs text-slate-500">Hôtes & Hôtesses</p>
+                        <p className="font-bold text-slate-800">Espace Invité</p>
+                        <p className="text-xs text-slate-500">Voir le programme & Ma table</p>
                         </div>
                     </div>
-                    <ChevronRight className="text-emerald-300 group-hover:text-emerald-500 transition-colors" />
+                    <ChevronRight className="text-slate-300 group-hover:text-wedding-gold transition-colors" />
+                    </button>
+
+                    <div className="relative flex py-2 items-center">
+                        <div className="flex-grow border-t border-slate-100"></div>
+                        <span className="flex-shrink-0 mx-4 text-[10px] text-slate-300 font-bold uppercase tracking-wider">Staff & Admin</span>
+                        <div className="flex-grow border-t border-slate-100"></div>
+                    </div>
+
+                    <button 
+                    onClick={() => handleLogin('hostess')}
+                    className="w-full py-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-xl flex items-center justify-between px-6 group transition-all"
+                    >
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                        <Users size={16} />
+                        </div>
+                        <div className="text-left">
+                        <p className="font-bold text-sm text-slate-800">Mode Accueil</p>
+                        </div>
+                    </div>
+                    <ChevronRight className="text-emerald-300 group-hover:text-emerald-500 transition-colors" size={16} />
                     </button>
 
                     <button 
                     onClick={() => { setTargetRole('planner'); setPinInput(''); }}
-                    className="w-full py-4 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-xl flex items-center justify-between px-6 group transition-all"
+                    className="w-full py-3 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-xl flex items-center justify-between px-6 group transition-all"
                     >
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
-                        <CalendarClock size={20} />
+                        <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
+                        <CalendarClock size={16} />
                         </div>
                         <div className="text-left">
-                        <p className="font-bold text-slate-800">Wedding Planner</p>
-                        <p className="text-xs text-slate-500">Gestion du programme</p>
+                        <p className="font-bold text-sm text-slate-800">Wedding Planner</p>
                         </div>
                     </div>
-                    <ChevronRight className="text-indigo-300 group-hover:text-indigo-500 transition-colors" />
+                    <ChevronRight className="text-indigo-300 group-hover:text-indigo-500 transition-colors" size={16} />
                     </button>
 
-                    <div className="pt-2">
-                        <button 
-                            onClick={() => { setTargetRole('admin'); setPinInput(''); }}
-                            className="w-full py-4 bg-slate-900 text-white rounded-xl shadow-lg shadow-slate-200 flex items-center justify-between px-6 group transition-all transform hover:scale-[1.02]"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
-                                    <Crown size={20} className="text-wedding-gold" />
-                                </div>
-                                <div className="text-left">
-                                    <p className="font-bold text-white">Espace Organisateur</p>
-                                    <p className="text-xs text-slate-400">Accès Administrateur</p>
-                                </div>
+                    <button 
+                        onClick={() => { setTargetRole('admin'); setPinInput(''); }}
+                        className="w-full py-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl flex items-center justify-between px-6 group transition-all"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-slate-200 text-slate-600 rounded-full flex items-center justify-center">
+                                <Crown size={16} />
                             </div>
-                            <ChevronRight className="text-slate-500 group-hover:text-white transition-colors" />
-                        </button>
-                    </div>
+                            <div className="text-left">
+                                <p className="font-bold text-sm text-slate-800">Admin</p>
+                            </div>
+                        </div>
+                    </button>
                 </>
             )}
 
@@ -424,10 +452,10 @@ const App: React.FC = () => {
           {/* Top Bar */}
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h1 className="font-serif text-2xl text-slate-900 tracking-tight">Bienvenue</h1>
+              <h1 className="font-serif text-2xl text-slate-900 tracking-tight">Christiane & Serge</h1>
               <div className="flex items-center gap-2">
                 <p className="text-slate-500 text-xs font-medium uppercase tracking-wide">
-                  {userRole === 'admin' ? 'Espace Organisateur' : userRole === 'planner' ? 'Wedding Planner' : 'Équipe d\'Accueil'}
+                  {userRole === 'admin' ? 'Espace Organisateur' : userRole === 'planner' ? 'Wedding Planner' : userRole === 'guest' ? 'Espace Invité' : 'Équipe d\'Accueil'}
                 </p>
                 <button 
                   onClick={handleLogout} 
@@ -454,22 +482,22 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Module Switcher (Admin Only) */}
-          {userRole === 'admin' && (
+          {/* Module Switcher (Admin & Guest) */}
+          {(userRole === 'admin' || userRole === 'guest') && (
               <div className="flex bg-slate-200 p-1 rounded-xl mb-4">
-                  <button 
-                    onClick={() => setActiveModule('checkin')}
-                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeModule === 'checkin' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}
-                  >
-                      <Users size={14} />
-                      Invités
-                  </button>
                   <button 
                     onClick={() => setActiveModule('planning')}
                     className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeModule === 'planning' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}
                   >
                       <ListTodo size={14} />
-                      Planning
+                      Programme
+                  </button>
+                  <button 
+                    onClick={() => setActiveModule('checkin')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${activeModule === 'checkin' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}
+                  >
+                      <Users size={14} />
+                      {userRole === 'guest' ? 'Trouver ma place' : 'Liste Invités'}
                   </button>
               </div>
           )}
@@ -478,14 +506,15 @@ const App: React.FC = () => {
           {activeModule === 'checkin' && (
             <>
                 <div className="mb-2">
-                    <Stats stats={stats} />
+                    {/* HIDE STATS FOR GUESTS */}
+                    {userRole !== 'guest' && <Stats stats={stats} />}
                 </div>
                 <div className="bg-slate-100 p-1 rounded-lg flex mb-3">
                     <button onClick={() => setViewMode('list')} className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-semibold transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}>
                     <LayoutList size={14} /> Liste
                     </button>
                     <button onClick={() => setViewMode('tables')} className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-semibold transition-all ${viewMode === 'tables' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}>
-                    <LayoutGrid size={14} /> Tables
+                    <LayoutGrid size={14} /> Plan de Table
                     </button>
                 </div>
                 {viewMode === 'list' && (
@@ -507,7 +536,8 @@ const App: React.FC = () => {
                     )}
                     </div>
                 )}
-                {viewMode === 'list' && !searchQuery && (
+                {/* HIDE FILTERS FOR GUESTS */}
+                {viewMode === 'list' && !searchQuery && userRole !== 'guest' && (
                     <div className="flex p-1 bg-slate-100 rounded-lg overflow-x-auto no-scrollbar animate-in fade-in duration-700">
                     {(['all', 'pending', 'arrived', 'absent'] as GuestFilter[]).map((f) => (
                         <button key={f} onClick={() => setFilter(f)} className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-md transition-all duration-200 capitalize whitespace-nowrap ${filter === f ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700'}`}>

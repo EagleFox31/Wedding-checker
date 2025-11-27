@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Clock, Type } from 'lucide-react';
-import { TimelineItem } from '../types';
+import { X, Save, Clock, Type, Layout } from 'lucide-react';
+import { TimelineItem, PlanningCategory } from '../types';
 
 interface PlanningFormProps {
   initialData?: TimelineItem;
@@ -10,6 +10,7 @@ interface PlanningFormProps {
 
 const PlanningForm: React.FC<PlanningFormProps> = ({ initialData, onSubmit, onClose }) => {
   const [formData, setFormData] = useState({
+    category: 'soiree' as PlanningCategory,
     time: '',
     title: '',
     description: '',
@@ -20,6 +21,7 @@ const PlanningForm: React.FC<PlanningFormProps> = ({ initialData, onSubmit, onCl
   useEffect(() => {
     if (initialData) {
       setFormData({
+        category: initialData.category || 'soiree',
         time: initialData.time,
         title: initialData.title,
         description: initialData.description || '',
@@ -51,55 +53,74 @@ const PlanningForm: React.FC<PlanningFormProps> = ({ initialData, onSubmit, onCl
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Horaire</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Section du Mariage</label>
             <div className="relative">
-              <Clock size={18} className="absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                required
-                className="w-full pl-10 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800"
-                placeholder="Ex: 20h00 - 20h30"
-                value={formData.time}
-                onChange={e => setFormData({...formData, time: e.target.value})}
-              />
+              <Layout size={18} className="absolute left-3 top-2.5 text-slate-400" />
+              <select
+                className="w-full pl-10 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-medium text-slate-800"
+                value={formData.category}
+                onChange={e => setFormData({...formData, category: e.target.value as PlanningCategory})}
+              >
+                  <option value="matin">1. Matin (Préparatifs)</option>
+                  <option value="mairie">2. Mairie (Civil)</option>
+                  <option value="cocktail">3. Cocktail</option>
+                  <option value="eglise">4. Église (Religieux)</option>
+                  <option value="soiree">5. Soirée Nuptiale</option>
+              </select>
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Titre</label>
-            <div className="relative">
-               <Type size={18} className="absolute left-3 top-2.5 text-slate-400" />
-               <input
-                type="text"
-                required
-                className="w-full pl-10 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-                placeholder="Ex: Ouverture du Bal"
-                value={formData.title}
-                onChange={e => setFormData({...formData, title: e.target.value})}
-              />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Horaire</label>
+                <div className="relative">
+                <Clock size={18} className="absolute left-3 top-2.5 text-slate-400" />
+                <input
+                    type="text"
+                    required
+                    className="w-full pl-10 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800"
+                    placeholder="Ex: 20h00"
+                    value={formData.time}
+                    onChange={e => setFormData({...formData, time: e.target.value})}
+                />
+                </div>
+            </div>
+            <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Titre</label>
+                <div className="relative">
+                <Type size={18} className="absolute left-3 top-2.5 text-slate-400" />
+                <input
+                    type="text"
+                    required
+                    className="w-full pl-10 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                    placeholder="Ex: Ouverture"
+                    value={formData.title}
+                    onChange={e => setFormData({...formData, title: e.target.value})}
+                />
+                </div>
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Description (Détails)</label>
             <textarea
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none h-24"
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none h-24 text-sm"
               placeholder="Détails du déroulé, musiques, intervenants..."
               value={formData.description}
               onChange={e => setFormData({...formData, description: e.target.value})}
             />
           </div>
 
-          <div className="flex items-center gap-2 cursor-pointer bg-indigo-50 p-3 rounded-lg border border-indigo-100">
+          <div className="flex items-center gap-2 cursor-pointer bg-amber-50 p-3 rounded-lg border border-amber-100">
              <input
                 type="checkbox"
                 id="highlight"
-                className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                className="w-5 h-5 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
                 checked={formData.isHighlight}
                 onChange={e => setFormData({...formData, isHighlight: e.target.checked})}
              />
-             <label htmlFor="highlight" className="text-sm font-medium text-indigo-900 cursor-pointer select-none">
-                 Marquer comme moment clé (Highlight)
+             <label htmlFor="highlight" className="text-sm font-medium text-amber-900 cursor-pointer select-none">
+                 Moment clé (Highlight)
              </label>
           </div>
 
