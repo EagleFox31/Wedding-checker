@@ -17,7 +17,7 @@ const App: React.FC = () => {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [pinError, setPinError] = useState(false);
   const [pinInput, setPinInput] = useState('');
-  const [targetRole, setTargetRole] = useState<'admin' | 'planner' | null>(null); // Removed hostess from target roles requiring PIN
+  const [targetRole, setTargetRole] = useState<'admin' | 'planner' | 'hostess' | null>(null);
   const [isGuestLinkMode, setIsGuestLinkMode] = useState(false); // New state for restricted guest view
 
   // App State
@@ -131,27 +131,37 @@ const App: React.FC = () => {
   // AUTH HANDLERS
   // ------------------------------------------------------------------
   const checkPin = () => {
+      let isValid = false;
+      let role: UserRole = 'guest'; // default
+
       if (targetRole === 'admin') {
           if (pinInput === '2025') {
-              setUserRole('admin');
-              localStorage.setItem('wedding_app_role', 'admin');
-              setPinError(false);
-              setTargetRole(null);
-          } else {
-              setPinError(true);
-              setTimeout(() => setPinError(false), 2000);
+              role = 'admin';
+              isValid = true;
           }
       } else if (targetRole === 'planner') {
           if (pinInput === '2026') {
-              setUserRole('planner');
-              localStorage.setItem('wedding_app_role', 'planner');
-              setActiveModule('planning'); // Force planning view
-              setPinError(false);
-              setTargetRole(null);
-          } else {
-              setPinError(true);
-              setTimeout(() => setPinError(false), 2000);
+              role = 'planner';
+              isValid = true;
           }
+      } else if (targetRole === 'hostess') {
+          if (pinInput === '2024') {
+              role = 'hostess';
+              isValid = true;
+          }
+      }
+
+      if (isValid) {
+          setUserRole(role);
+          localStorage.setItem('wedding_app_role', role);
+          if (role === 'planner') setActiveModule('planning');
+          else setActiveModule('checkin');
+          
+          setPinError(false);
+          setTargetRole(null);
+      } else {
+          setPinError(true);
+          setTimeout(() => setPinError(false), 2000);
       }
   };
 
@@ -168,9 +178,6 @@ const App: React.FC = () => {
     setPinInput('');
     setTargetRole(null);
     setActiveModule('checkin');
-    
-    // If we were in guest link mode, ensure we stay in guest link mode visually or reset URL? 
-    // Usually standard behavior is fine, but let's keep the isGuestLinkMode state as is.
   };
 
   // ------------------------------------------------------------------
@@ -373,7 +380,7 @@ const App: React.FC = () => {
                             </div>
 
                             <button 
-                            onClick={() => handleLogin('hostess')}
+                            onClick={() => { setTargetRole('hostess'); setPinInput(''); }}
                             className="w-full py-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-xl flex items-center justify-between px-6 group transition-all"
                             >
                             <div className="flex items-center gap-3">
@@ -384,7 +391,7 @@ const App: React.FC = () => {
                                 <p className="font-bold text-sm text-slate-800">Mode Accueil</p>
                                 </div>
                             </div>
-                            <ChevronRight className="text-emerald-300 group-hover:text-emerald-500 transition-colors" size={16} />
+                            <Lock className="text-emerald-300 group-hover:text-emerald-500 transition-colors" size={16} />
                             </button>
 
                             <button 
@@ -428,7 +435,7 @@ const App: React.FC = () => {
                             <ChevronRight className="rotate-180" size={20}/>
                         </button>
                         <span className="font-bold text-slate-800">
-                            {targetRole === 'admin' ? 'Code Organisateur' : 'Code Planner'}
+                            {targetRole === 'admin' ? 'Code Organisateur' : targetRole === 'planner' ? 'Code Planner' : 'Code Hôtesse'}
                         </span>
                         <div className="w-5"></div>
                     </div>
