@@ -1,19 +1,45 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Guest } from '../types';
-import { Check, Utensils, Info } from 'lucide-react';
+import { Check, Utensils, Info, MoreVertical, Trash2, Edit } from 'lucide-react';
 
 interface GuestCardProps {
   guest: Guest;
   onToggleStatus: (id: string, currentStatus: boolean) => void;
+  onEdit: (guest: Guest) => void;
+  onDelete: (id: string) => void;
 }
 
-const GuestCard: React.FC<GuestCardProps> = ({ guest, onToggleStatus }) => {
+const GuestCard: React.FC<GuestCardProps> = ({ guest, onToggleStatus, onEdit, onDelete }) => {
   const isArrived = guest.hasArrived;
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleMenuAction = (e: React.MouseEvent, action: 'edit' | 'delete') => {
+    e.stopPropagation();
+    setShowMenu(false);
+    if (action === 'edit') onEdit(guest);
+    if (action === 'delete') {
+      if(window.confirm(`Supprimer ${guest.firstName} ${guest.lastName} ?`)) {
+        onDelete(guest.id);
+      }
+    }
+  };
 
   return (
     <div 
       className={`
-        relative overflow-hidden rounded-2xl border transition-all duration-300 mb-3
+        relative overflow-visible rounded-2xl border transition-all duration-300 mb-3
         ${isArrived 
           ? 'bg-emerald-50/50 border-emerald-200 shadow-sm' 
           : 'bg-white border-slate-100 shadow-sm hover:border-slate-300'
@@ -47,17 +73,49 @@ const GuestCard: React.FC<GuestCardProps> = ({ guest, onToggleStatus }) => {
           </div>
         </div>
 
-        {/* Right Info: Table Badge */}
+        {/* Right Info: Table Badge & Actions */}
         <div className="flex flex-col items-end gap-3">
-          <div className={`
-            flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm
-            ${isArrived 
-              ? 'bg-white text-emerald-700 border border-emerald-100' 
-              : 'bg-slate-100 text-slate-600 border border-slate-200'
-            }
-          `}>
-            <Utensils size={12} />
-            <span className="whitespace-nowrap">Table {guest.tableNumber}</span>
+          <div className="flex items-center gap-1">
+            <div className={`
+              flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm
+              ${isArrived 
+                ? 'bg-white text-emerald-700 border border-emerald-100' 
+                : 'bg-slate-100 text-slate-600 border border-slate-200'
+              }
+            `}>
+              <Utensils size={12} />
+              <span className="whitespace-nowrap">Table {guest.tableNumber}</span>
+            </div>
+            
+            {/* Context Menu Button */}
+            <div className="relative" ref={menuRef}>
+              <button 
+                onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+                className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+              >
+                <MoreVertical size={16} />
+              </button>
+
+              {/* Dropdown Menu */}
+              {showMenu && (
+                <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-right">
+                  <button 
+                    onClick={(e) => handleMenuAction(e, 'edit')}
+                    className="w-full text-left px-4 py-3 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 border-b border-slate-50"
+                  >
+                    <Edit size={14} />
+                    Changer table
+                  </button>
+                  <button 
+                    onClick={(e) => handleMenuAction(e, 'delete')}
+                    className="w-full text-left px-4 py-3 text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                  >
+                    <Trash2 size={14} />
+                    Désactiver
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Toggle Button */}

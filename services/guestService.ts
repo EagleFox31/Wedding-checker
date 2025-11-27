@@ -1,6 +1,6 @@
 import { Guest } from '../types';
 import { db } from './firebase';
-import { collection, getDocs, doc, updateDoc, writeBatch, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, writeBatch, setDoc, deleteDoc, addDoc } from 'firebase/firestore';
 
 // ==========================================
 // CONFIGURATION
@@ -49,7 +49,7 @@ export const fetchGuests = async (): Promise<Guest[]> => {
 };
 
 // ==========================================
-// UPDATE STATUS
+// UPDATE STATUS (Check-in)
 // ==========================================
 export const updateGuestStatus = async (guestId: string, hasArrived: boolean): Promise<void> => {
   if (USE_MOCK_DATA) {
@@ -75,9 +75,65 @@ export const updateGuestStatus = async (guestId: string, hasArrived: boolean): P
     const guestRef = doc(db, "guests", guestId);
     await updateDoc(guestRef, { 
       hasArrived, 
-      isAbsent: hasArrived ? false : undefined, // Assuming default logic
+      isAbsent: hasArrived ? false : undefined,
       arrivedAt: hasArrived ? new Date().toISOString() : null 
     });
+  }
+};
+
+// ==========================================
+// ADD GUEST
+// ==========================================
+export const addGuest = async (guest: Omit<Guest, 'id'>): Promise<Guest> => {
+  if (USE_MOCK_DATA) {
+    await delay(400);
+    const stored = localStorage.getItem('demo_guests');
+    const guests: Guest[] = stored ? JSON.parse(stored) : MOCK_GUESTS;
+    const newGuest: Guest = { ...guest, id: `manual_${Date.now()}` };
+    guests.push(newGuest);
+    localStorage.setItem('demo_guests', JSON.stringify(guests));
+    return newGuest;
+  } else {
+    if (!db) throw new Error("Database not initialized");
+    const docRef = await addDoc(collection(db, "guests"), guest);
+    return { id: docRef.id, ...guest };
+  }
+};
+
+// ==========================================
+// UPDATE GUEST DETAILS (Table, etc)
+// ==========================================
+export const updateGuestDetails = async (guestId: string, updates: Partial<Guest>): Promise<void> => {
+  if (USE_MOCK_DATA) {
+    await delay(300);
+    const stored = localStorage.getItem('demo_guests');
+    if (stored) {
+      const guests: Guest[] = JSON.parse(stored);
+      const updatedGuests = guests.map(g => g.id === guestId ? { ...g, ...updates } : g);
+      localStorage.setItem('demo_guests', JSON.stringify(updatedGuests));
+    }
+  } else {
+    if (!db) return;
+    const guestRef = doc(db, "guests", guestId);
+    await updateDoc(guestRef, updates);
+  }
+};
+
+// ==========================================
+// DELETE GUEST
+// ==========================================
+export const deleteGuest = async (guestId: string): Promise<void> => {
+  if (USE_MOCK_DATA) {
+    await delay(300);
+    const stored = localStorage.getItem('demo_guests');
+    if (stored) {
+      const guests: Guest[] = JSON.parse(stored);
+      const updatedGuests = guests.filter(g => g.id !== guestId);
+      localStorage.setItem('demo_guests', JSON.stringify(updatedGuests));
+    }
+  } else {
+    if (!db) return;
+    await deleteDoc(doc(db, "guests", guestId));
   }
 };
 
@@ -86,22 +142,15 @@ export const updateGuestStatus = async (guestId: string, hasArrived: boolean): P
 // ==========================================
 export const uploadGuestList = async (guests: Guest[]) => {
   if (USE_MOCK_DATA) {
-    // Just replace local storage
     localStorage.setItem('demo_guests', JSON.stringify(guests));
     window.location.reload();
   } else {
     if (!db) throw new Error("Firebase DB not ready");
-    
-    // Batch writes allow up to 500 operations. We split if necessary.
     const batch = writeBatch(db);
-    
-    // Warning: This assumes a small wedding (<500 guests) for a single batch.
-    // For larger events, you'd loop and commit every 500.
     guests.forEach((guest) => {
       const docRef = doc(collection(db, "guests"), guest.id);
       batch.set(docRef, guest);
     });
-
     await batch.commit();
   }
 };

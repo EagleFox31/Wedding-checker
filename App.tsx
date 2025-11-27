@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, RefreshCw, X, Settings, Utensils, Users } from 'lucide-react';
+import { Search, Filter, RefreshCw, X, Settings, Utensils, Users, LayoutList, LayoutGrid, Plus } from 'lucide-react';
 import { Guest, GuestFilter, DashboardStats } from './types';
 import * as guestService from './services/guestService';
 import Stats from './components/Stats';
 import GuestCard from './components/GuestCard';
 import AdminPanel from './components/AdminPanel';
+import TableView from './components/TableView';
+import GuestForm from './components/GuestForm';
 
 const App: React.FC = () => {
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -13,6 +15,12 @@ const App: React.FC = () => {
   const [filter, setFilter] = useState<GuestFilter>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'tables'>('list');
+  
+  // Modal States
+  const [showGuestForm, setShowGuestForm] = useState(false);
+  const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Initial Load
   useEffect(() => {
@@ -63,7 +71,52 @@ const App: React.FC = () => {
     }
   };
 
-  // Derived State: Filtered Guests
+  // ------------------------------------------------------------------
+  // CRUD HANDLERS
+  // ------------------------------------------------------------------
+  
+  const handleAddGuest = async (guestData: Omit<Guest, 'id'>) => {
+    setIsSubmitting(true);
+    try {
+      const newGuest = await guestService.addGuest(guestData);
+      setGuests(prev => [...prev, newGuest].sort((a, b) => a.lastName.localeCompare(b.lastName)));
+      setShowGuestForm(false);
+    } catch (error) {
+      console.error("Failed to add guest", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateGuest = async (guestData: Omit<Guest, 'id'>) => {
+    if (!editingGuest) return;
+    setIsSubmitting(true);
+    try {
+      await guestService.updateGuestDetails(editingGuest.id, guestData);
+      setGuests(prev => prev.map(g => g.id === editingGuest.id ? { ...g, ...guestData } : g));
+      setEditingGuest(null);
+    } catch (error) {
+      console.error("Failed to update guest", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteGuest = async (id: string) => {
+    // Optimistic delete
+    setGuests(prev => prev.filter(g => g.id !== id));
+    try {
+      await guestService.deleteGuest(id);
+    } catch (error) {
+      console.error("Failed to delete guest", error);
+      loadGuests(); // Revert on error
+    }
+  };
+
+  // ------------------------------------------------------------------
+  // DERIVED STATE
+  // ------------------------------------------------------------------
+
   const filteredGuests = useMemo(() => {
     return guests.filter(guest => {
       // Normalisation pour la recherche (insensible à la casse)
@@ -161,83 +214,106 @@ const App: React.FC = () => {
             <Stats stats={stats} />
           </div>
 
-          {/* Search Bar */}
-          <div className="relative mb-3 group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search size={16} className="text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
-            </div>
-            <input
-              type="text"
-              placeholder="Rechercher nom, table..."
-              className="block w-full pl-9 pr-9 py-2.5 bg-white border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-sm"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
-              >
-                <X size={14} />
-              </button>
-            )}
+          {/* View Toggle (List vs Grid) */}
+          <div className="bg-slate-100 p-1 rounded-lg flex mb-3">
+             <button 
+               onClick={() => setViewMode('list')}
+               className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-semibold transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}
+             >
+               <LayoutList size={14} />
+               Liste
+             </button>
+             <button 
+               onClick={() => setViewMode('tables')}
+               className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-semibold transition-all ${viewMode === 'tables' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}
+             >
+               <LayoutGrid size={14} />
+               Tables
+             </button>
           </div>
 
-          {/* Quick Filters (Chips) */}
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 mb-1 mask-linear-fade">
-            {quickFilters.tables.map(table => (
-               <button
-                key={`t-${table}`}
-                onClick={() => setSearchQuery(table.toString())}
-                className={`
-                  flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border transition-colors
-                  ${searchQuery === table.toString() 
-                    ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                  }
-                `}
-              >
-                <Utensils size={10} />
-                Table {table}
-              </button>
-            ))}
-            <div className="w-px h-6 bg-slate-200 flex-shrink-0 mx-1"></div>
-            {quickFilters.inviters.map(inviter => (
-               <button
-                key={`i-${inviter}`}
-                onClick={() => setSearchQuery(inviter)}
-                className={`
-                  flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border transition-colors
-                  ${searchQuery === inviter 
-                    ? 'bg-indigo-100 text-indigo-700 border-indigo-200' 
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                  }
-                `}
-              >
-                <Users size={10} />
-                {inviter}
-              </button>
-            ))}
-          </div>
+          {/* SEARCH & FILTERS - ONLY SHOW IN LIST MODE */}
+          {viewMode === 'list' && (
+            <>
+              {/* Search Bar */}
+              <div className="relative mb-3 group animate-in fade-in zoom-in duration-300">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search size={16} className="text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Rechercher nom, table..."
+                  className="block w-full pl-9 pr-9 py-2.5 bg-white border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
 
-          {/* Status Tabs */}
-          <div className="flex p-1 bg-slate-100 rounded-lg overflow-x-auto no-scrollbar">
-            {(['all', 'pending', 'arrived', 'absent'] as GuestFilter[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`
-                  flex-1 py-1.5 px-2 text-xs font-semibold rounded-md transition-all duration-200 capitalize whitespace-nowrap
-                  ${filter === f 
-                    ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/5' 
-                    : 'text-slate-500 hover:text-slate-700'
-                  }
-                `}
-              >
-                {f === 'all' ? 'Tous' : f === 'pending' ? 'À venir' : f === 'arrived' ? 'Présents' : 'Absents'}
-              </button>
-            ))}
-          </div>
+              {/* Quick Filters (Chips) */}
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 mb-1 mask-linear-fade animate-in fade-in slide-in-from-right-4 duration-500">
+                {quickFilters.tables.map(table => (
+                  <button
+                    key={`t-${table}`}
+                    onClick={() => setSearchQuery(table.toString())}
+                    className={`
+                      flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border transition-colors
+                      ${searchQuery === table.toString() 
+                        ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                      }
+                    `}
+                  >
+                    <Utensils size={10} />
+                    Table {table}
+                  </button>
+                ))}
+                <div className="w-px h-6 bg-slate-200 flex-shrink-0 mx-1"></div>
+                {quickFilters.inviters.map(inviter => (
+                  <button
+                    key={`i-${inviter}`}
+                    onClick={() => setSearchQuery(inviter)}
+                    className={`
+                      flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap border transition-colors
+                      ${searchQuery === inviter 
+                        ? 'bg-indigo-100 text-indigo-700 border-indigo-200' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                      }
+                    `}
+                  >
+                    <Users size={10} />
+                    {inviter}
+                  </button>
+                ))}
+              </div>
+
+              {/* Status Tabs */}
+              <div className="flex p-1 bg-slate-100 rounded-lg overflow-x-auto no-scrollbar animate-in fade-in duration-700">
+                {(['all', 'pending', 'arrived', 'absent'] as GuestFilter[]).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`
+                      flex-1 py-1.5 px-2 text-xs font-semibold rounded-md transition-all duration-200 capitalize whitespace-nowrap
+                      ${filter === f 
+                        ? 'bg-white text-slate-900 shadow-sm ring-1 ring-black/5' 
+                        : 'text-slate-500 hover:text-slate-700'
+                      }
+                    `}
+                  >
+                    {f === 'all' ? 'Tous' : f === 'pending' ? 'À venir' : f === 'arrived' ? 'Présents' : 'Absents'}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </header>
 
@@ -250,7 +326,11 @@ const App: React.FC = () => {
             <div className="w-8 h-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mb-4"></div>
             <p className="text-slate-400 text-xs">Chargement...</p>
           </div>
+        ) : viewMode === 'tables' ? (
+          /* TABLE VIEW */
+          <TableView guests={guests} />
         ) : filteredGuests.length === 0 ? (
+          /* EMPTY STATE (List View) */
           <div className="text-center py-12 px-6">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 text-slate-400 mb-3">
               <Search size={20} />
@@ -269,7 +349,8 @@ const App: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="space-y-1 pb-8">
+          /* GUEST LIST */
+          <div className="space-y-1 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex justify-between items-center px-1 mb-2">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 {filteredGuests.length} Résultat{filteredGuests.length > 1 ? 's' : ''}
@@ -281,6 +362,8 @@ const App: React.FC = () => {
                 key={guest.id} 
                 guest={guest} 
                 onToggleStatus={toggleGuestStatus} 
+                onEdit={setEditingGuest}
+                onDelete={handleDeleteGuest}
               />
             ))}
             
@@ -292,8 +375,25 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Admin Panel Overlay */}
+      {/* Floating Action Button (FAB) for Adding Guest */}
+      <button 
+        onClick={() => setShowGuestForm(true)}
+        className="absolute bottom-6 right-6 w-14 h-14 bg-slate-900 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 z-40"
+      >
+        <Plus size={28} />
+      </button>
+
+      {/* MODALS */}
       {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
+      
+      {(showGuestForm || editingGuest) && (
+        <GuestForm 
+          initialData={editingGuest || undefined}
+          isSubmitting={isSubmitting}
+          onClose={() => { setShowGuestForm(false); setEditingGuest(null); }}
+          onSubmit={editingGuest ? handleUpdateGuest : handleAddGuest}
+        />
+      )}
     </div>
   );
 };
