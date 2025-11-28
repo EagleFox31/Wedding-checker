@@ -197,7 +197,7 @@ const TableView: React.FC<TableViewProps> = ({ guests, userRole, onUpdateTable }
                       {userRole === 'admin' && (
                           <button 
                              onClick={(e) => startEditing(e, table)}
-                             className="opacity-0 group-hover:opacity-100 p-1.5 bg-white/50 rounded-full text-slate-400 hover:text-blue-600 hover:bg-white transition-all shadow-sm backdrop-blur-sm"
+                             className="p-1.5 bg-white rounded-full text-slate-400 hover:text-blue-600 border border-slate-100 transition-all shadow-sm"
                           >
                               <Pencil size={12} />
                           </button>
