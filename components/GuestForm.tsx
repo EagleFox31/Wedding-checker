@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, User, Utensils } from 'lucide-react';
+import { X, Save, User, Utensils, Tag } from 'lucide-react';
 import { Guest } from '../types';
 
 interface GuestFormProps {
@@ -14,6 +14,7 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
     firstName: '',
     lastName: '',
     tableNumber: '',
+    tableName: '',
     inviter: 'Serge',
     description: '',
     plusOne: false,
@@ -27,6 +28,7 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
         firstName: initialData.firstName,
         lastName: initialData.lastName,
         tableNumber: initialData.tableNumber.toString(),
+        tableName: initialData.tableName || '',
         inviter: initialData.inviter,
         description: initialData.description || '',
         plusOne: initialData.plusOne || false,
@@ -44,7 +46,8 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
       ...formData,
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
-      tableNumber: formData.tableNumber, // Keep as string or convert? Types allow both
+      tableNumber: formData.tableNumber, 
+      tableName: formData.tableName.trim(),
       description: formData.description.trim()
     });
   };
@@ -93,19 +96,34 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Numéro de Table</label>
-            <div className="relative">
-              <Utensils size={18} className="absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                required
-                className="w-full pl-10 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800"
-                placeholder="Ex: 4 ou Table d'Honneur"
-                value={formData.tableNumber}
-                onChange={e => setFormData({...formData, tableNumber: e.target.value})}
-              />
-            </div>
+          <div className="grid grid-cols-3 gap-3">
+             <div className="col-span-1">
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Table N°</label>
+                <div className="relative">
+                <Utensils size={16} className="absolute left-2.5 top-3 text-slate-400" />
+                <input
+                    type="text"
+                    required
+                    className="w-full pl-8 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800"
+                    placeholder="1"
+                    value={formData.tableNumber}
+                    onChange={e => setFormData({...formData, tableNumber: e.target.value})}
+                />
+                </div>
+             </div>
+             <div className="col-span-2">
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nom Table (Optionnel)</label>
+                <div className="relative">
+                <Tag size={16} className="absolute left-2.5 top-3 text-slate-400" />
+                <input
+                    type="text"
+                    className="w-full pl-8 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                    placeholder="Ex: Honneur"
+                    value={formData.tableName}
+                    onChange={e => setFormData({...formData, tableName: e.target.value})}
+                />
+                </div>
+             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -145,13 +163,13 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
                     hasArrived: e.target.checked ? false : formData.hasArrived // Force not arrived if absent
                   })}
                 />
-                <span className="text-xs font-medium text-rose-600">Ne viendra pas (Absent)</span>
+                <span className="text-xs font-medium text-rose-600">Absent</span>
               </label>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Note / Description</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Note / Relation</label>
             <input
               type="text"
               className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"

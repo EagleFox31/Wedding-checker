@@ -4,10 +4,11 @@
     <meta charset="UTF-8" />
     <!-- Favicon: Bague de fiançailles (SVG Data URI pour support offline) -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💍</text></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <!-- Viewport: user-scalable=no est CRUCIAL pour l'effet "App Native" (empêche le zoom tactile) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Christiane & Serge | Check-in</title>
     
-    <!-- Tailwind CSS (CDN conservé pour simplicité, ou passer via npm en prod) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Fonts -->
@@ -16,9 +17,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 
     <!-- PWA Settings -->
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#f8fafc" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Christiane & Serge">
     
     <script>
@@ -51,6 +52,10 @@
       .no-scrollbar {
           -ms-overflow-style: none;  /* IE and Edge */
           scrollbar-width: none;  /* Firefox */
+      }
+      /* Empêcher le refresh "pull-to-refresh" sur mobile qui casse l'effet app */
+      body {
+        overscroll-behavior-y: none;
       }
     </style>
   <script type="importmap">

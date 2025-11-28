@@ -48,10 +48,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
         }
 
         // MAPPING DES COLONNES
-        // Index 0: Table (ex: "1:BENEDICTION")
+        // Index 0: Table (ex: "1:BENEDICTION") -> Table "1", Nom "BENEDICTION"
         // Index 1: Nom (ex: "BAYEMI")
         // Index 2: Prénom (ex: "Christiane")
-        // Index 3: Mention (ex: "Christiane") -> Invité par
+        // Index 3: Mention (ex: "Invité par...") -> inviter
 
         let rawTable = parts[0];
         const lastName = parts[1] || 'Inconnu';
@@ -59,21 +59,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
         const mention = parts[3] || '';
 
         // Logique spéciale pour extraire le nom de la table du numéro
-        // ex: "1:BENEDICTION" -> Table: "1", Desc: "BENEDICTION"
+        // ex: "1:BENEDICTION" -> Table: "1", Name: "BENEDICTION"
         let tableNumber = rawTable;
-        let description = '';
+        let tableName = '';
 
         if (rawTable.includes(':')) {
             const split = rawTable.split(':');
             tableNumber = split[0].trim();
-            description = split[1].trim();
+            tableName = split[1].trim();
         } else if (rawTable.includes('-')) {
              // Au cas où le format soit 1-BENEDICTION
             const split = rawTable.split('-');
             // Vérifier si la première partie est un chiffre
             if (!isNaN(Number(split[0].trim()))) {
                 tableNumber = split[0].trim();
-                description = split[1].trim();
+                tableName = split[1].trim();
             }
         }
 
@@ -82,8 +82,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
           firstName: firstName,
           lastName: lastName,
           tableNumber: tableNumber,
+          tableName: tableName, // Nouveau champ pour le nom de la table
           inviter: mention || 'Serge & Christiane',
-          description: description, // On met le nom de la table (Benediction) en description
+          description: '', // On laisse la description vide pour des notes manuelles futures
           hasArrived: false,
           isAbsent: false,
           plusOne: false
@@ -138,7 +139,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
     const data = currentGuests.map(g => ({
         "Nom": g.lastName,
         "Prénom": g.firstName,
-        "Table": g.tableNumber,
+        "Table (N°)": g.tableNumber,
+        "Table (Nom)": g.tableName || '',
         "Statut": g.hasArrived ? 'Présent' : g.isAbsent ? 'Absent' : 'Non venu',
         "Heure d'arrivée": g.arrivedAt ? new Date(g.arrivedAt).toLocaleTimeString('fr-FR') : '-',
         "Invité par": g.inviter,
@@ -148,11 +150,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
     // 2. Créer une feuille de calcul (Worksheet)
     const worksheet = XLSX.utils.json_to_sheet(data);
 
-    // 3. Ajuster la largeur des colonnes (Optionnel mais recommandé pour Excel)
+    // 3. Ajuster la largeur des colonnes
     const wscols = [
         {wch: 20}, // Nom
         {wch: 20}, // Prénom
-        {wch: 10}, // Table
+        {wch: 10}, // Table N
+        {wch: 20}, // Table Nom
         {wch: 15}, // Statut
         {wch: 15}, // Heure
         {wch: 15}, // Invité par
@@ -248,7 +251,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
                 Importer une nouvelle liste
             </h3>
             <p className="text-xs text-slate-500 mb-3">
-                Attention, cela écrasera les données actuelles. Format: Table, Nom, Prénom, Mention.
+                Format: <b>N°Table:NomTable</b>, Nom, Prénom, Mention.
+                <br/>
+                Ex: <code>1:BENEDICTION</code>
             </p>
             
             <textarea
@@ -296,7 +301,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
                         </td>
                         <td className="px-3 py-2">
                             <span className="font-mono bg-slate-100 px-1 rounded">{g.tableNumber}</span>
-                            {g.description && <div className="text-[9px] text-slate-400">{g.description}</div>}
+                            {g.tableName && <div className="text-[9px] text-slate-400 font-bold">{g.tableName}</div>}
                         </td>
                         <td className="px-3 py-2 text-slate-400 truncate max-w-[100px]">{g.inviter}</td>
                         </tr>
@@ -326,34 +331,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
                 </div>
             </div>
             )}
-
-            {/* Step 1: Firebase Setup */}
-            <div className="mt-8 bg-indigo-50 rounded-xl p-4 border border-indigo-100">
-            <div 
-                className="flex items-center justify-between cursor-pointer"
-                onClick={() => setShowTutorial(!showTutorial)}
-            >
-                <div className="flex items-center gap-2 text-indigo-800 font-bold">
-                <Database size={18} />
-                <span>Configuration Firebase</span>
-                </div>
-                {showTutorial ? <ChevronUp size={18} className="text-indigo-600"/> : <ChevronDown size={18} className="text-indigo-600"/>}
-            </div>
-
-            {showTutorial && (
-                <div className="mt-3 text-sm text-indigo-900/80 space-y-2">
-                <p>Pour synchroniser les données en temps réel :</p>
-                <ol className="list-decimal list-inside space-y-1 ml-1 text-xs">
-                    <li>Allez sur <a href="https://console.firebase.google.com" target="_blank" className="underline font-bold">console.firebase.google.com</a></li>
-                    <li>Créez un projet et ajoutez une "App Web"</li>
-                    <li>Copiez la configuration (apiKey, etc.)</li>
-                    <li>Ouvrez le fichier <code>services/firebase.ts</code> dans votre code</li>
-                    <li>Collez la configuration à la place des valeurs par défaut.</li>
-                    <li>Une fois fait, rechargez cette page.</li>
-                </ol>
-                </div>
-            )}
-            </div>
         </div>
       </div>
     </div>

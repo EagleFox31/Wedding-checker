@@ -1,6 +1,6 @@
 import { Guest } from '../types';
 import { db } from './firebase';
-import { collection, getDocs, doc, updateDoc, writeBatch, setDoc, deleteDoc, addDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, writeBatch, setDoc, deleteDoc, addDoc, query, where, onSnapshot, Unsubscribe } from 'firebase/firestore';
 
 // ==========================================
 // CONFIGURATION
@@ -12,23 +12,47 @@ const USE_MOCK_DATA = !db;
 // MOCK DATA GENERATOR
 // ==========================================
 const MOCK_GUESTS: Guest[] = [
-  { id: '1', firstName: 'Jean', lastName: 'Dupont', tableNumber: 1, inviter: 'Serge', description: 'Témoin', hasArrived: true, arrivedAt: new Date().toISOString(), plusOne: true, isAbsent: false },
-  { id: '2', firstName: 'Marie', lastName: 'Curie', tableNumber: 1, inviter: 'Christiane', description: 'Tante', hasArrived: false, isAbsent: false },
-  { id: '3', firstName: 'Paul', lastName: 'Martin', tableNumber: 2, inviter: 'Parents', description: 'Ami enfance', hasArrived: false, isAbsent: false },
-  { id: '4', firstName: 'Sophie', lastName: 'Bernard', tableNumber: 2, inviter: 'Serge', description: 'Collègue', hasArrived: false, isAbsent: false },
-  { id: '5', firstName: 'Luc', lastName: 'Besson', tableNumber: "Table d'Honneur", inviter: 'Christiane', description: 'Oncle', hasArrived: true, arrivedAt: new Date().toISOString(), isAbsent: false },
+  { id: '1', firstName: 'Jean', lastName: 'Dupont', tableNumber: 1, tableName: 'Les Mariés', inviter: 'Serge', description: 'Témoin', hasArrived: true, arrivedAt: new Date().toISOString(), plusOne: true, isAbsent: false },
+  { id: '2', firstName: 'Marie', lastName: 'Curie', tableNumber: 1, tableName: 'Les Mariés', inviter: 'Christiane', description: 'Tante', hasArrived: false, isAbsent: false },
+  { id: '3', firstName: 'Paul', lastName: 'Martin', tableNumber: 2, tableName: 'Amis Vip', inviter: 'Parents', description: 'Ami enfance', hasArrived: false, isAbsent: false },
+  { id: '4', firstName: 'Sophie', lastName: 'Bernard', tableNumber: 2, tableName: 'Amis Vip', inviter: 'Serge', description: 'Collègue', hasArrived: false, isAbsent: false },
+  { id: '5', firstName: 'Luc', lastName: 'Besson', tableNumber: "Table d'Honneur", tableName: 'Honneur', inviter: 'Christiane', description: 'Oncle', hasArrived: true, arrivedAt: new Date().toISOString(), isAbsent: false },
   { id: '6', firstName: 'Emma', lastName: 'Watson', tableNumber: 3, inviter: 'Serge', description: 'Cousine éloignée', hasArrived: false, isAbsent: false },
   { id: '7', firstName: 'Thomas', lastName: 'Pesquet', tableNumber: 3, inviter: 'Serge', description: 'Ami lycée', hasArrived: false, isAbsent: false },
   { id: '8', firstName: 'Céline', lastName: 'Dion', tableNumber: 4, inviter: 'Christiane', description: 'Voisine', hasArrived: false, isAbsent: true },
   { id: '9', firstName: 'Omar', lastName: 'Sy', tableNumber: 4, inviter: 'Parents', description: 'Ami famille', hasArrived: true, arrivedAt: new Date().toISOString(), isAbsent: false },
-  { id: '10', firstName: 'Zinedine', lastName: 'Zidane', tableNumber: 1, inviter: 'Serge', description: 'Parrain', hasArrived: false, isAbsent: false },
+  { id: '10', firstName: 'Zinedine', lastName: 'Zidane', tableNumber: 1, tableName: 'Les Mariés', inviter: 'Serge', description: 'Parrain', hasArrived: false, isAbsent: false },
 ];
 
-// Removed delay function for instant interactions
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, 0));
+// ==========================================
+// REAL-TIME SUBSCRIPTION
+// ==========================================
+export const subscribeToGuests = (onUpdate: (guests: Guest[]) => void): Unsubscribe => {
+    if (USE_MOCK_DATA) {
+        // Mock implementation: just return initial data
+        const stored = localStorage.getItem('demo_guests');
+        const data = stored ? JSON.parse(stored) : MOCK_GUESTS;
+        onUpdate(data);
+        // Mock updates aren't real-time across tabs/devices without complex event listeners
+        // Returning a no-op unsubscribe function
+        return () => {};
+    } else {
+        if (!db) return () => {};
+        
+        const q = collection(db, "guests");
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const guests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Guest));
+            onUpdate(guests);
+        }, (error) => {
+            console.error("Error subscribing to guests:", error);
+        });
+
+        return unsubscribe;
+    }
+};
 
 // ==========================================
-// FETCH GUESTS
+// FETCH GUESTS (Legacy/One-time)
 // ==========================================
 export const fetchGuests = async (): Promise<Guest[]> => {
   if (USE_MOCK_DATA) {
@@ -160,6 +184,66 @@ export const updateGuestDetails = async (guestId: string, updates: Partial<Guest
     const guestRef = doc(db, "guests", guestId);
     await updateDoc(guestRef, updates);
   }
+};
+
+// ==========================================
+// UPDATE TABLE DETAILS (Bulk Update)
+// ==========================================
+export const updateTableDetails = async (oldTableNumber: string | number, newTableNumber: string, newTableName: string): Promise<void> => {
+    // Normalize inputs
+    const targetTableString = oldTableNumber.toString();
+    const newTableVal = newTableNumber;
+
+    if (USE_MOCK_DATA) {
+        const stored = localStorage.getItem('demo_guests');
+        if (stored) {
+            const guests: Guest[] = JSON.parse(stored);
+            const updatedGuests = guests.map(g => {
+                if (g.tableNumber.toString() === targetTableString) {
+                    return { ...g, tableNumber: newTableVal, tableName: newTableName };
+                }
+                return g;
+            });
+            localStorage.setItem('demo_guests', JSON.stringify(updatedGuests));
+        }
+    } else {
+        if (!db) throw new Error("DB not ready");
+        
+        const batch = writeBatch(db);
+        let docsFound = 0;
+
+        // 1. Chercher comme String
+        const qString = query(collection(db, "guests"), where("tableNumber", "==", targetTableString));
+        const snapString = await getDocs(qString);
+        
+        snapString.docs.forEach((doc) => {
+             batch.update(doc.ref, { 
+                 tableNumber: newTableVal,
+                 tableName: newTableName
+             });
+             docsFound++;
+        });
+
+        // 2. Chercher comme Nombre
+        const asNumber = Number(targetTableString);
+        if (!isNaN(asNumber)) {
+            const qNum = query(collection(db, "guests"), where("tableNumber", "==", asNumber));
+            const snapNum = await getDocs(qNum);
+            
+            snapNum.docs.forEach((doc) => {
+                batch.update(doc.ref, { 
+                    tableNumber: newTableVal,
+                    tableName: newTableName
+                });
+                docsFound++;
+            });
+        }
+
+        if (docsFound > 0) {
+            await batch.commit();
+            console.log(`Updated ${docsFound} guests in Firebase.`);
+        }
+    }
 };
 
 // ==========================================

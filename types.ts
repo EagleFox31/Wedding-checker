@@ -3,6 +3,7 @@ export interface Guest {
   firstName: string;
   lastName: string;
   tableNumber: string | number;
+  tableName?: string; // Nom de la table (ex: "Honneur", "Diamant")
   inviter: 'Serge' | 'Christiane' | 'Famille' | string; // Qui les a invité
   description?: string; // Relation ou note (ex: "Cousine du marié")
   hasArrived: boolean;

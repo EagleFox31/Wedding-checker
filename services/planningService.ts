@@ -1,14 +1,12 @@
 import { TimelineItem } from '../types';
 import { db } from './firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, writeBatch, getDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, writeBatch, getDoc, setDoc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 
 // ==========================================
 // CONFIGURATION
 // ==========================================
 const USE_MOCK_DATA = !db; 
-// Changement de la clé pour forcer le rechargement des données locales
 const STORAGE_KEY = 'wedding_planning_cs_v5'; 
-// VERSION DU PLANNING : Incrémenter ce chiffre force la mise à jour de Firebase
 const PLANNING_VERSION = 5;
 
 // ==========================================
@@ -55,7 +53,56 @@ const MOCK_PLANNING: TimelineItem[] = [
 ];
 
 // ==========================================
-// PARTY STATUS (STARTED OR NOT)
+// REAL-TIME SUBSCRIPTIONS
+// ==========================================
+export const subscribeToPlanning = (onUpdate: (items: TimelineItem[]) => void): Unsubscribe => {
+    if (USE_MOCK_DATA) {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        const data = stored ? JSON.parse(stored) : MOCK_PLANNING;
+        onUpdate(data);
+        return () => {};
+    } else {
+        if (!db) return () => {};
+        
+        // 1. Check version first (one time)
+        const configRef = doc(db, "config", "planning_metadata");
+        getDoc(configRef).then(async (configSnap) => {
+             const remoteVersion = configSnap.exists() ? configSnap.data().version : 0;
+             if (remoteVersion < PLANNING_VERSION) {
+                 await overwritePlanningWithDefaults();
+             }
+        });
+
+        // 2. Subscribe to collection
+        const q = query(collection(db, "planning"));
+        return onSnapshot(q, (snapshot) => {
+            if (snapshot.empty) return;
+            const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TimelineItem));
+            // Sort by ID
+            const sorted = items.sort((a,b) => parseInt(a.id) - parseInt(b.id));
+            onUpdate(sorted);
+        });
+    }
+};
+
+export const subscribeToPartyStatus = (onUpdate: (started: boolean) => void): Unsubscribe => {
+    if (USE_MOCK_DATA) {
+        return () => {};
+    } else {
+        if (!db) return () => {};
+        const docRef = doc(db, "config", "planning");
+        return onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                onUpdate(docSnap.data().started === true);
+            } else {
+                onUpdate(false);
+            }
+        });
+    }
+};
+
+// ==========================================
+// PARTY STATUS (Legacy/One-time)
 // ==========================================
 export const getPartyStatus = async (): Promise<boolean> => {
   const localStatus = localStorage.getItem('wedding_party_started');
@@ -118,7 +165,7 @@ export const resetPlanningProgress = async (): Promise<void> => {
 };
 
 // ==========================================
-// FORCE RESET TO DEFAULTS (Admin Action or Version Upgrade)
+// FORCE RESET TO DEFAULTS
 // ==========================================
 export const overwritePlanningWithDefaults = async (): Promise<void> => {
   console.log(`Overwriting planning with default data (Version ${PLANNING_VERSION})...`);
@@ -129,7 +176,6 @@ export const overwritePlanningWithDefaults = async (): Promise<void> => {
   // 2. Firebase (if connected)
   if (!USE_MOCK_DATA && db) {
     try {
-      // A. Delete all existing documents in planning collection
       const snapshot = await getDocs(collection(db, "planning"));
       const batchDelete = writeBatch(db);
       snapshot.docs.forEach((doc) => {
@@ -137,15 +183,12 @@ export const overwritePlanningWithDefaults = async (): Promise<void> => {
       });
       await batchDelete.commit();
 
-      // B. Upload new default items
       const batchAdd = writeBatch(db);
       MOCK_PLANNING.forEach((item) => {
-          // Use ID from mock to keep order
           const docRef = doc(db, "planning", item.id);
           batchAdd.set(docRef, item);
       });
       
-      // C. Update Version Number in Firebase Config
       const versionRef = doc(db, "config", "planning_metadata");
       batchAdd.set(versionRef, { version: PLANNING_VERSION });
       
@@ -159,7 +202,7 @@ export const overwritePlanningWithDefaults = async (): Promise<void> => {
 };
 
 // ==========================================
-// FETCH PLANNING
+// FETCH PLANNING (Legacy)
 // ==========================================
 export const fetchPlanning = async (): Promise<TimelineItem[]> => {
   if (USE_MOCK_DATA) {
@@ -171,34 +214,27 @@ export const fetchPlanning = async (): Promise<TimelineItem[]> => {
     try {
       if (!db) throw new Error("Database not initialized");
       
-      // --- AUTO-UPDATE LOGIC START ---
-      // Check if the version in Firebase is older than the code version
       const configRef = doc(db, "config", "planning_metadata");
       const configSnap = await getDoc(configRef);
       const remoteVersion = configSnap.exists() ? configSnap.data().version : 0;
       
       if (remoteVersion < PLANNING_VERSION) {
-          console.warn(`Local version (${PLANNING_VERSION}) is newer than remote (${remoteVersion}). Updating Firebase...`);
           await overwritePlanningWithDefaults();
           return MOCK_PLANNING;
       }
-      // --- AUTO-UPDATE LOGIC END ---
 
       const q = query(collection(db, "planning"));
       const snapshot = await getDocs(q);
       
       if (snapshot.empty) {
-        // First load or empty DB
         await overwritePlanningWithDefaults();
         return MOCK_PLANNING;
       }
       
       const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TimelineItem));
-      // Sort by ID to ensure order matches the mock array
       return items.sort((a,b) => parseInt(a.id) - parseInt(b.id));
     } catch (e) {
       console.error("Firebase planning fetch error:", e);
-      // Fallback to mock if fetch fails
       return MOCK_PLANNING;
     }
   }

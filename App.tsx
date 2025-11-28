@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, RefreshCw, X, Settings, Utensils, Users, LayoutList, LayoutGrid, Plus, Lock, LogOut, ChevronRight, Download, CalendarClock, ListTodo, Crown, HeartHandshake, QrCode } from 'lucide-react';
+import { Search, Filter, RefreshCw, X, Settings, Utensils, Users, LayoutList, LayoutGrid, Plus, Lock, LogOut, ChevronRight, Download, CalendarClock, ListTodo, Crown, HeartHandshake, QrCode, Share } from 'lucide-react';
 import { Guest, GuestFilter, DashboardStats, UserRole, TimelineItem } from './types';
 import * as guestService from './services/guestService';
 import * as planningService from './services/planningService';
@@ -48,9 +48,18 @@ const App: React.FC = () => {
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [showIOSPrompt, setShowIOSPrompt] = useState(false);
 
   // PWA Install Logic
   useEffect(() => {
+    // Detect iOS
+    const isIosDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    // Check if running in standalone mode (already installed)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    
+    setIsIOS(isIosDevice && !isStandalone);
+
     const handler = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -61,6 +70,10 @@ const App: React.FC = () => {
   }, []);
 
   const handleInstallClick = async () => {
+    if (isIOS) {
+        setShowIOSPrompt(true);
+        return;
+    }
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
@@ -87,44 +100,41 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Initial Load
+  // REAL-TIME SUBSCRIPTIONS
   useEffect(() => {
-    if (userRole) {
-      if (activeModule === 'checkin') loadGuests();
-      if (activeModule === 'planning') loadPlanning();
+    if (!userRole) return;
+
+    let unsubscribeGuests: () => void = () => {};
+    let unsubscribePlanning: () => void = () => {};
+
+    if (activeModule === 'checkin') {
+        setLoading(true);
+        unsubscribeGuests = guestService.subscribeToGuests((data) => {
+            const sorted = data.sort((a, b) => a.lastName.localeCompare(b.lastName));
+            setGuests(sorted);
+            setLoading(false);
+        });
     }
+
+    if (activeModule === 'planning') {
+        setLoading(true);
+        unsubscribePlanning = planningService.subscribeToPlanning((data) => {
+            setPlanningItems(data);
+            setLoading(false);
+        });
+    }
+
+    return () => {
+        unsubscribeGuests();
+        unsubscribePlanning();
+    };
   }, [userRole, activeModule]);
 
-  const loadGuests = async () => {
-    setLoading(true);
-    try {
-      const data = await guestService.fetchGuests();
-      const sorted = data.sort((a, b) => a.lastName.localeCompare(b.lastName));
-      setGuests(sorted);
-    } catch (error) {
-      console.error("Failed to load guests", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadPlanning = async (showLoading = true) => {
-    if (showLoading) setLoading(true);
-    try {
-        const data = await planningService.fetchPlanning();
-        setPlanningItems(data);
-    } catch (error) {
-        console.error("Failed to load planning", error);
-    } finally {
-        if (showLoading) setLoading(false);
-    }
-  };
-
+  // Legacy manual loader (kept as fallback for hard refresh button)
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    if (activeModule === 'checkin') await loadGuests();
-    else await loadPlanning();
-    setIsRefreshing(false);
+    // Even with realtime, forcing a re-fetch or just simulating a check is good UI feedback
+    setTimeout(() => setIsRefreshing(false), 500);
   };
 
   // ------------------------------------------------------------------
@@ -187,6 +197,7 @@ const App: React.FC = () => {
     // Read only for guests
     if (userRole === 'guest') return;
 
+    // Optimistic update (UI changes immediately, then listener confirms)
     const newStatus = !currentStatus;
     setGuests(prev => prev.map(g => 
       g.id === id 
@@ -201,7 +212,8 @@ const App: React.FC = () => {
     try {
       await guestService.updateGuestStatus(id, newStatus);
     } catch (error) {
-      setGuests(prev => prev.map(g => g.id === id ? { ...g, hasArrived: currentStatus } : g));
+       // Revert is handled by listener or next fetch, but we could handle error here
+       console.error(error);
     }
   };
 
@@ -222,15 +234,15 @@ const App: React.FC = () => {
     try {
       await guestService.setGuestAbsent(id, newAbsent);
     } catch (error) {
-       loadGuests();
+       console.error(error);
     }
   };
 
   const handleAddGuest = async (guestData: Omit<Guest, 'id'>) => {
     setIsSubmitting(true);
     try {
-      const newGuest = await guestService.addGuest(guestData);
-      setGuests(prev => [...prev, newGuest].sort((a, b) => a.lastName.localeCompare(b.lastName)));
+      await guestService.addGuest(guestData);
+      // No need to manually update state, listener will do it
       setShowGuestForm(false);
     } catch (error) { console.error(error); } finally { setIsSubmitting(false); }
   };
@@ -240,14 +252,25 @@ const App: React.FC = () => {
     setIsSubmitting(true);
     try {
       await guestService.updateGuestDetails(editingGuest.id, guestData);
-      setGuests(prev => prev.map(g => g.id === editingGuest.id ? { ...g, ...guestData } : g));
+      // No need to manually update state, listener will do it
       setEditingGuest(null);
+      setShowGuestForm(false);
     } catch (error) { console.error(error); } finally { setIsSubmitting(false); }
   };
 
+  const handleUpdateTable = async (oldId: string, newId: string, newName: string) => {
+      try {
+          await guestService.updateTableDetails(oldId, newId, newName);
+          // Listener will update UI
+      } catch (e) {
+          console.error(e);
+      }
+  };
+
   const handleDeleteGuest = async (id: string) => {
+    // Optimistic
     setGuests(prev => prev.filter(g => g.id !== id));
-    try { await guestService.deleteGuest(id); } catch (error) { loadGuests(); }
+    try { await guestService.deleteGuest(id); } catch (error) { console.error(error); }
   };
 
   // ------------------------------------------------------------------
@@ -262,16 +285,14 @@ const App: React.FC = () => {
       try {
           await planningService.toggleItemComplete(id, newState);
       } catch (e) {
-          loadPlanning();
+          console.error(e);
       }
   };
 
   const handleAddPlanning = async (item: Omit<TimelineItem, 'id'>) => {
       try {
-          const newItem = await planningService.addPlanningItem(item);
-          setPlanningItems(prev => [...prev, newItem].sort((a,b) => a.id.localeCompare(b.id))); // Rough sort
+          await planningService.addPlanningItem(item);
           setShowPlanningForm(false);
-          loadPlanning(); // Reload to get proper order if backend sorted
       } catch (e) { console.error(e); }
   };
 
@@ -279,14 +300,14 @@ const App: React.FC = () => {
       if (!editingPlanningItem) return;
       try {
           await planningService.updatePlanningItem(editingPlanningItem.id, item);
-          setPlanningItems(prev => prev.map(i => i.id === editingPlanningItem.id ? { ...i, ...item } : i));
           setEditingPlanningItem(null);
+          setShowPlanningForm(false);
       } catch (e) { console.error(e); }
   };
 
   const handleDeletePlanning = async (id: string) => {
       setPlanningItems(prev => prev.filter(i => i.id !== id));
-      try { await planningService.deletePlanningItem(id); } catch (e) { loadPlanning(); }
+      try { await planningService.deletePlanningItem(id); } catch (e) { console.error(e); }
   };
 
   // ------------------------------------------------------------------
@@ -343,7 +364,7 @@ const App: React.FC = () => {
             
             {!targetRole && (
                 <>
-                    {showInstallBtn && (
+                    {(showInstallBtn || isIOS) && (
                     <button 
                         onClick={handleInstallClick}
                         className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200 font-bold flex items-center justify-center gap-2 animate-pulse mb-4"
@@ -463,6 +484,35 @@ const App: React.FC = () => {
             <p className="text-center text-[10px] text-slate-300 pt-4">© 2025 Wedding Check-In</p>
           </div>
         </div>
+        
+        {/* iOS INSTALL INSTRUCTIONS MODAL */}
+        {showIOSPrompt && (
+            <div className="absolute inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowIOSPrompt(false)}>
+                <div className="bg-white w-full p-6 rounded-t-3xl shadow-2xl animate-in slide-in-from-bottom duration-300 text-center pb-12 relative">
+                    <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-6"></div>
+                    <h3 className="font-serif text-xl font-bold text-slate-800 mb-4">Installer sur iPhone</h3>
+                    <p className="text-sm text-slate-500 mb-6">
+                        Pour une meilleure expérience, ajoutez cette application à votre écran d'accueil.
+                    </p>
+                    <div className="flex flex-col items-center gap-4 text-sm font-medium text-slate-700">
+                        <div className="flex items-center gap-3">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold">1</span>
+                            <span>Appuyez sur le bouton <span className="font-bold text-blue-600">Partager</span> <Share size={14} className="inline"/></span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold">2</span>
+                            <span>Cherchez <span className="font-bold">Sur l'écran d'accueil</span> <Plus size={14} className="inline border border-current rounded-[2px]"/></span>
+                        </div>
+                    </div>
+                    
+                    {/* Arrow pointing down */}
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 animate-bounce">
+                         <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[10px] border-t-slate-400"></div>
+                    </div>
+                </div>
+            </div>
+        )}
+
       </div>
     );
   }
@@ -502,7 +552,7 @@ const App: React.FC = () => {
                   </button>
               )}
 
-              {showInstallBtn && (
+              {(showInstallBtn || isIOS) && (
                  <button onClick={handleInstallClick} className="p-2 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 animate-pulse">
                   <Download size={18} />
                 </button>
@@ -586,12 +636,38 @@ const App: React.FC = () => {
           )}
         </div>
       </header>
+      
+       {/* iOS INSTALL INSTRUCTIONS MODAL (REPEATED OUTSIDE LOGIN IF LOGGED IN) */}
+        {showIOSPrompt && userRole && (
+            <div className="absolute inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowIOSPrompt(false)}>
+                <div className="bg-white w-full p-6 rounded-t-3xl shadow-2xl animate-in slide-in-from-bottom duration-300 text-center pb-12 relative">
+                    <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-6"></div>
+                    <h3 className="font-serif text-xl font-bold text-slate-800 mb-4">Installer sur iPhone</h3>
+                    <p className="text-sm text-slate-500 mb-6">
+                        Pour une meilleure expérience, ajoutez cette application à votre écran d'accueil.
+                    </p>
+                    <div className="flex flex-col items-center gap-4 text-sm font-medium text-slate-700">
+                        <div className="flex items-center gap-3">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold">1</span>
+                            <span>Appuyez sur le bouton <span className="font-bold text-blue-600">Partager</span> <Share size={14} className="inline"/></span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold">2</span>
+                            <span>Cherchez <span className="font-bold">Sur l'écran d'accueil</span> <Plus size={14} className="inline border border-current rounded-[2px]"/></span>
+                        </div>
+                    </div>
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 animate-bounce">
+                         <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[10px] border-t-slate-400"></div>
+                    </div>
+                </div>
+            </div>
+        )}
 
       <main className="flex-1 overflow-y-auto scroll-smooth">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-8 h-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mb-4"></div>
-            <p className="text-slate-400 text-xs">Chargement...</p>
+            <p className="text-slate-400 text-xs">Synchronisation en direct...</p>
           </div>
         ) : activeModule === 'planning' ? (
             <PlanningView 
@@ -601,10 +677,10 @@ const App: React.FC = () => {
                 onAdd={() => { setEditingPlanningItem(null); setShowPlanningForm(true); }}
                 onEdit={(item) => { setEditingPlanningItem(item); setShowPlanningForm(true); }}
                 onDelete={handleDeletePlanning}
-                onRefresh={() => loadPlanning(false)} 
+                onRefresh={async () => {}} // No-op for manual refresh in realtime mode
             />
         ) : viewMode === 'tables' ? (
-          <div className="p-4"><TableView guests={guests} /></div>
+          <div className="p-4"><TableView guests={guests} userRole={userRole} onUpdateTable={handleUpdateTable} /></div>
         ) : filteredGuests.length === 0 ? (
           <div className="text-center py-12 px-6">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 text-slate-400 mb-3"><Search size={20} /></div>
