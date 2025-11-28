@@ -1,96 +1,95 @@
 import React, { useMemo, useState } from 'react';
-import { Guest, UserRole } from '../types';
-import { User, ChevronDown, ChevronUp, Pencil, Save, X } from 'lucide-react';
-import * as guestService from '../services/guestService';
+import { Guest, UserRole, Table } from '../types';
+import { User, ChevronUp, Pencil, Save, X } from 'lucide-react';
 
 interface TableViewProps {
   guests: Guest[];
+  tables: Table[]; // New prop: list of real table objects
   userRole?: UserRole | null;
-  onUpdateTable?: (oldId: string, newId: string, newName: string) => Promise<void>;
+  onUpdateTable?: (tableId: string, newNumber: string, newName: string) => Promise<void>;
 }
 
 interface TableGroup {
-  id: string | number; // This is actually the tableNumber
-  displayName: string; // The specific name (ex: "Honneur")
+  id: string; // The Real Table ID (ex: t_1)
+  number: string | number; // Display Number
+  displayName: string; // Display Name
   guests: Guest[];
   total: number;
   arrived: number;
   percentage: number;
 }
 
-const TableView: React.FC<TableViewProps> = ({ guests, userRole, onUpdateTable }) => {
-  const [expandedTable, setExpandedTable] = useState<string | number | null>(null);
+const TableView: React.FC<TableViewProps> = ({ guests, tables, userRole, onUpdateTable }) => {
+  const [expandedTable, setExpandedTable] = useState<string | null>(null);
   const [editingTable, setEditingTable] = useState<{id: string, number: string, name: string} | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const tables = useMemo(() => {
+  const tableGroups = useMemo(() => {
+    // 1. Initialize groups for ALL tables (even empty ones)
     const groups: { [key: string]: TableGroup } = {};
 
-    guests.forEach(guest => {
-      const tableId = guest.tableNumber;
-      // Normalisation du nom de la table pour éviter les undefined
-      const guestTableName = guest.tableName || '';
-
-      if (!groups[tableId]) {
-        groups[tableId] = {
-          id: tableId,
-          displayName: guestTableName, // Take table name from first guest found
-          guests: [],
-          total: 0,
-          arrived: 0,
-          percentage: 0
+    tables.forEach(t => {
+        groups[t.id] = {
+            id: t.id,
+            number: t.number,
+            displayName: t.name,
+            guests: [],
+            total: 0,
+            arrived: 0,
+            percentage: 0
         };
-      } else if (!groups[tableId].displayName && guestTableName) {
-          // If we find a guest with a table name and the group doesn't have one yet, use it
-          groups[tableId].displayName = guestTableName;
-      }
-
-      groups[tableId].guests.push(guest);
-      groups[tableId].total += 1;
-      if (guest.plusOne) groups[tableId].total += 1;
-      
-      if (guest.hasArrived) {
-        groups[tableId].arrived += 1;
-        if (guest.plusOne) groups[tableId].arrived += 1;
-      }
     });
 
+    // 2. Distribute Guests
+    guests.forEach(guest => {
+        // Find matching table by ID, or fallback to number matches (for legacy data)
+        let tableId = guest.tableId;
+        
+        if (!tableId || !groups[tableId]) {
+             // Fallback: try to find a table with matching number
+             const match = tables.find(t => t.number.toString() === guest.tableNumber.toString());
+             if (match) tableId = match.id;
+        }
+
+        if (tableId && groups[tableId]) {
+            const group = groups[tableId];
+            group.guests.push(guest);
+            group.total += 1;
+            if (guest.plusOne) group.total += 1;
+            if (guest.hasArrived) {
+                group.arrived += 1;
+                if (guest.plusOne) group.arrived += 1;
+            }
+        } else {
+            // Orphan guests? We might want to handle them, but for now we ignore or put in "No Table"
+        }
+    });
+
+    // 3. Calculate percentages
     Object.values(groups).forEach(group => {
-      group.percentage = Math.round((group.arrived / group.total) * 100);
+      group.percentage = group.total > 0 ? Math.round((group.arrived / group.total) * 100) : 0;
     });
 
+    // 4. Sort
     return Object.values(groups).sort((a, b) => {
-      const numA = parseInt(a.id.toString());
-      const numB = parseInt(b.id.toString());
-      
+      const numA = parseInt(a.number.toString());
+      const numB = parseInt(b.number.toString());
       if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-      if (!isNaN(numA)) return -1;
-      if (!isNaN(numB)) return 1;
-      return a.id.toString().localeCompare(b.id.toString());
+      return a.number.toString().localeCompare(b.number.toString());
     });
-  }, [guests]);
+  }, [guests, tables]);
 
-  const toggleExpand = (id: string | number) => {
-    if (editingTable) return; // Disable expand when editing
-    if (expandedTable === id) {
-      setExpandedTable(null);
-    } else {
-      setExpandedTable(id);
-    }
+  const toggleExpand = (id: string) => {
+    if (editingTable) return; 
+    setExpandedTable(expandedTable === id ? null : id);
   };
 
   const startEditing = (e: React.MouseEvent, table: TableGroup) => {
       e.stopPropagation();
-      
-      // STRATÉGIE "DEEP FIND" : 
-      // 1. On regarde si le groupe a déjà un nom.
-      // 2. Sinon, on scanne tous les invités de cette table pour voir si l'un d'eux a l'info 'tableName'
-      const foundName = table.displayName || table.guests.find(g => g.tableName && g.tableName.trim().length > 0)?.tableName || '';
-
       setEditingTable({
-          id: table.id.toString(),
-          number: table.id.toString(),
-          name: foundName
+          id: table.id,
+          number: table.number.toString(),
+          name: table.displayName
       });
   };
 
@@ -112,11 +111,11 @@ const TableView: React.FC<TableViewProps> = ({ guests, userRole, onUpdateTable }
 
   return (
     <div className="grid grid-cols-2 gap-3 pb-8 animate-in fade-in zoom-in duration-300">
-      {tables.map((table) => {
-        const isComplete = table.percentage === 100;
-        const isEmpty = table.percentage === 0;
+      {tableGroups.map((table) => {
+        const isComplete = table.total > 0 && table.percentage === 100;
+        const isEmpty = table.total === 0;
         const isExpanded = expandedTable === table.id;
-        const isEditing = editingTable?.id === table.id.toString();
+        const isEditing = editingTable?.id === table.id;
 
         if (isEditing) {
             return (
@@ -141,7 +140,7 @@ const TableView: React.FC<TableViewProps> = ({ guests, userRole, onUpdateTable }
                                 />
                             </div>
                             <div className="col-span-2">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nom (Optionnel)</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nom</label>
                                 <input 
                                     className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                     placeholder="Ex: Les Mariés"
@@ -157,7 +156,7 @@ const TableView: React.FC<TableViewProps> = ({ guests, userRole, onUpdateTable }
                             className="w-full py-2 bg-blue-600 text-white rounded-lg font-bold text-xs hover:bg-blue-700 flex items-center justify-center gap-2 shadow-md shadow-blue-200"
                         >
                             {isSaving ? <span className="animate-spin w-3 h-3 border-2 border-white/30 border-t-white rounded-full"/> : <Save size={14} />}
-                            Enregistrer
+                            Enregistrer (Met à jour tous les invités)
                         </button>
                     </form>
                 </div>
@@ -187,12 +186,11 @@ const TableView: React.FC<TableViewProps> = ({ guests, userRole, onUpdateTable }
 
             <div className="relative z-10 p-4 flex flex-col h-full justify-between">
               
-              {/* Header */}
               <div className="flex justify-between items-start mb-2">
                 <div className="flex-1 min-w-0 pr-1">
                   <div className="flex items-center gap-1">
                       <h3 className={`font-bold text-lg leading-none ${isComplete ? 'text-emerald-800' : 'text-slate-800'}`}>
-                        {table.id}
+                        {table.number}
                       </h3>
                       {userRole === 'admin' && (
                           <button 
@@ -208,15 +206,8 @@ const TableView: React.FC<TableViewProps> = ({ guests, userRole, onUpdateTable }
                         {table.displayName}
                      </p>
                   )}
-                  {/* Fallback to first guest description if no table name but description exists and not expanded */}
-                  {!table.displayName && table.guests[0].description && !isExpanded && (
-                     <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                        {table.guests[0].description}
-                     </p>
-                  )}
                 </div>
                 
-                {/* Badge Status */}
                 <div className={`
                   px-2 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shrink-0
                   ${isComplete ? 'bg-emerald-200 text-emerald-800' : 'bg-slate-100 text-slate-500'}
@@ -226,10 +217,10 @@ const TableView: React.FC<TableViewProps> = ({ guests, userRole, onUpdateTable }
                 </div>
               </div>
 
-              {/* Guests List */}
               {isExpanded && (
                 <div className="mt-2 space-y-2 animate-in slide-in-from-top-2">
                   <div className="h-px bg-slate-100 w-full mb-2"></div>
+                  {table.guests.length === 0 && <p className="text-xs text-slate-300 italic">Table vide</p>}
                   {table.guests.map(guest => (
                     <div key={guest.id} className="flex items-center justify-between text-sm">
                       <span className={`truncate mr-2 ${guest.hasArrived ? 'text-emerald-700 line-through decoration-emerald-500/30' : 'text-slate-700'}`}>
@@ -244,7 +235,6 @@ const TableView: React.FC<TableViewProps> = ({ guests, userRole, onUpdateTable }
                 </div>
               )}
 
-              {/* Progress Bar (Visual only when collapsed) */}
               {!isExpanded && (
                 <div className="mt-2 flex justify-between items-end">
                     <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">

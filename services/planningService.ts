@@ -78,8 +78,15 @@ export const subscribeToPlanning = (onUpdate: (items: TimelineItem[]) => void): 
         return onSnapshot(q, (snapshot) => {
             if (snapshot.empty) return;
             const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TimelineItem));
-            // Sort by ID
-            const sorted = items.sort((a,b) => parseInt(a.id) - parseInt(b.id));
+            // Sort by ID (handle numeric strings logic to sort '3b' correctly after '3')
+            const sorted = items.sort((a,b) => {
+                const numA = parseFloat(a.id);
+                const numB = parseFloat(b.id);
+                if (!isNaN(numA) && !isNaN(numB)) {
+                    if (numA !== numB) return numA - numB;
+                }
+                return a.id.localeCompare(b.id);
+            });
             onUpdate(sorted);
         });
     }
@@ -149,6 +156,7 @@ export const resetPlanningProgress = async (): Promise<void> => {
   if (!USE_MOCK_DATA && db) {
     try {
       const snapshot = await getDocs(collection(db, "planning"));
+      // ACID: Use a batch to update all docs atomically
       const batch = writeBatch(db);
       
       if (snapshot.empty) return;
@@ -165,7 +173,7 @@ export const resetPlanningProgress = async (): Promise<void> => {
 };
 
 // ==========================================
-// FORCE RESET TO DEFAULTS
+// FORCE RESET TO DEFAULTS (ACID COMPLIANT)
 // ==========================================
 export const overwritePlanningWithDefaults = async (): Promise<void> => {
   console.log(`Overwriting planning with default data (Version ${PLANNING_VERSION})...`);
@@ -177,23 +185,28 @@ export const overwritePlanningWithDefaults = async (): Promise<void> => {
   if (!USE_MOCK_DATA && db) {
     try {
       const snapshot = await getDocs(collection(db, "planning"));
-      const batchDelete = writeBatch(db);
+      
+      // ACID: Use a single batch for both deletion and creation
+      const batch = writeBatch(db);
+      
+      // A. Queue Deletes
       snapshot.docs.forEach((doc) => {
-        batchDelete.delete(doc.ref);
+        batch.delete(doc.ref);
       });
-      await batchDelete.commit();
 
-      const batchAdd = writeBatch(db);
+      // B. Queue Creations
       MOCK_PLANNING.forEach((item) => {
           const docRef = doc(db, "planning", item.id);
-          batchAdd.set(docRef, item);
+          batch.set(docRef, item);
       });
       
+      // C. Update Version
       const versionRef = doc(db, "config", "planning_metadata");
-      batchAdd.set(versionRef, { version: PLANNING_VERSION });
+      batch.set(versionRef, { version: PLANNING_VERSION });
       
-      await batchAdd.commit();
-      console.log("Firebase planning successfully updated.");
+      // D. Commit All at once
+      await batch.commit();
+      console.log("Firebase planning successfully updated (ACID transaction).");
     } catch (e) {
       console.error("Failed to overwrite firebase planning", e);
       throw e;
@@ -232,7 +245,15 @@ export const fetchPlanning = async (): Promise<TimelineItem[]> => {
       }
       
       const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TimelineItem));
-      return items.sort((a,b) => parseInt(a.id) - parseInt(b.id));
+      // Robust Sort
+      return items.sort((a,b) => {
+            const numA = parseFloat(a.id);
+            const numB = parseFloat(b.id);
+            if (!isNaN(numA) && !isNaN(numB)) {
+                if (numA !== numB) return numA - numB;
+            }
+            return a.id.localeCompare(b.id);
+      });
     } catch (e) {
       console.error("Firebase planning fetch error:", e);
       return MOCK_PLANNING;

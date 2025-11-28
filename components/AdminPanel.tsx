@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, AlertCircle, CheckCircle, Database, Copy, ChevronDown, ChevronUp, FileSpreadsheet, Download, RefreshCw, CalendarRange } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle, Database, Copy, ChevronDown, ChevronUp, FileSpreadsheet, Download, RefreshCw, CalendarRange, ArrowRightLeft } from 'lucide-react';
 import { Guest } from '../types';
 import * as guestService from '../services/guestService';
 import * as planningService from '../services/planningService';
@@ -16,7 +16,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
   const [parsedGuests, setParsedGuests] = useState<Guest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(false);
   const [isResettingPlanning, setIsResettingPlanning] = useState(false);
 
   // Stats pour le rapport
@@ -188,23 +187,25 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
 
       <div className="flex-1 overflow-y-auto p-5 pb-20">
 
-        {/* SECTION CONFIGURATION */}
+        {/* SECTION MAINTENANCE */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 mb-8 shadow-sm">
             <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-                <CalendarRange size={20} className="text-blue-600" />
-                Configuration du Programme
+                <Database size={20} className="text-indigo-600" />
+                Maintenance de la Base de Données
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-                Si les étapes du mariage ne s'affichent pas correctement ou ont changé.
+                Outils pour réparer ou mettre à jour la structure des données.
             </p>
-             <button 
-                onClick={handleResetPlanning}
-                disabled={isResettingPlanning}
-                className="w-full flex items-center justify-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-xl hover:bg-blue-100 transition-colors text-blue-700 font-bold text-xs"
-            >
-                {isResettingPlanning ? <RefreshCw className="animate-spin" size={16} /> : <RefreshCw size={16} />}
-                Recharger le Programme Officiel (Christiane & Serge)
-            </button>
+             <div className="space-y-2">
+                <button 
+                    onClick={handleResetPlanning}
+                    disabled={isResettingPlanning}
+                    className="w-full flex items-center justify-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-xl hover:bg-blue-100 transition-colors text-blue-700 font-bold text-xs"
+                >
+                    {isResettingPlanning ? <RefreshCw className="animate-spin" size={16} /> : <CalendarRange size={16} />}
+                    Réinitialiser le Programme Officiel
+                </button>
+             </div>
         </div>
 
         {/* SECTION RAPPORT (FIN EVENT) */}
@@ -326,7 +327,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
                     )}
                 </button>
                 <p className="text-[10px] text-center text-slate-400 mt-2">
-                    Ceci remplacera la liste actuelle.
+                    Ceci remplacera la liste actuelle et mettra à jour la structure des tables.
                 </p>
                 </div>
             </div>

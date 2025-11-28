@@ -135,7 +135,10 @@ const GuestCard: React.FC<GuestCardProps> = ({ guest, userRole, onToggleStatus, 
               }
             `}>
               <Utensils size={10} />
-              <span className="truncate">{guest.tableNumber}</span>
+              <span className="truncate">
+                  {guest.tableNumber}
+                  {guest.tableName ? ` • ${guest.tableName}` : ''}
+              </span>
             </div>
 
             {/* HIDE CHECK BUTTON FOR GUESTS - OR MAKE IT INACTIVE */}

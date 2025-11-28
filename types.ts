@@ -1,15 +1,22 @@
+export interface Table {
+  id: string; // ex: "t_1"
+  number: string | number; // ex: "1"
+  name: string; // ex: "Honneur"
+}
+
 export interface Guest {
   id: string;
   firstName: string;
   lastName: string;
-  tableNumber: string | number;
-  tableName?: string; // Nom de la table (ex: "Honneur", "Diamant")
-  inviter: 'Serge' | 'Christiane' | 'Famille' | string; // Qui les a invité
-  description?: string; // Relation ou note (ex: "Cousine du marié")
+  tableId?: string; // NOUVEAU: Clé étrangère vers la collection tables
+  tableNumber: string | number; // Gardé pour fallback / affichage rapide
+  tableName?: string; // Gardé pour fallback
+  inviter: 'Serge' | 'Christiane' | 'Famille' | string;
+  description?: string;
   hasArrived: boolean;
-  isAbsent?: boolean; // Marqué comme ne venant pas
-  arrivedAt?: string; // ISO date string
-  plusOne?: boolean; // Vient avec quelqu'un ?
+  isAbsent?: boolean;
+  arrivedAt?: string;
+  plusOne?: boolean;
 }
 
 export type PlanningCategory = 'matin' | 'mairie' | 'cocktail' | 'eglise' | 'soiree';
@@ -21,7 +28,7 @@ export interface TimelineItem {
   title: string;
   description?: string;
   completed: boolean;
-  isHighlight?: boolean; // Pour les moments clés
+  isHighlight?: boolean;
 }
 
 export type GuestFilter = 'all' | 'arrived' | 'pending' | 'absent';

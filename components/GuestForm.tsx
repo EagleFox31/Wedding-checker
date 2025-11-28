@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, User, Utensils, Tag } from 'lucide-react';
-import { Guest } from '../types';
+import { X, Save, Utensils } from 'lucide-react';
+import { Guest, Table } from '../types';
 
 interface GuestFormProps {
   initialData?: Guest;
+  tables: Table[]; // Pass existing tables to select
   onSubmit: (guestData: Omit<Guest, 'id'>) => Promise<void>;
   onClose: () => void;
   isSubmitting: boolean;
 }
 
-const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, isSubmitting }) => {
+const GuestForm: React.FC<GuestFormProps> = ({ initialData, tables, onSubmit, onClose, isSubmitting }) => {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
-    tableNumber: '',
-    tableName: '',
+    tableId: '', // Selected Table ID
     inviter: 'Serge',
     description: '',
     plusOne: false,
@@ -27,27 +27,35 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
       setFormData({
         firstName: initialData.firstName,
         lastName: initialData.lastName,
-        tableNumber: initialData.tableNumber.toString(),
-        tableName: initialData.tableName || '',
+        tableId: initialData.tableId || '',
         inviter: initialData.inviter,
         description: initialData.description || '',
         plusOne: initialData.plusOne || false,
         hasArrived: initialData.hasArrived,
         isAbsent: initialData.isAbsent || false
       });
+    } else if (tables.length > 0) {
+        // Default to first table if creating new
+        const sortedTables = [...tables].sort((a,b) => String(a.number).localeCompare(String(b.number), undefined, { numeric: true }));
+        if(sortedTables.length > 0) {
+             setFormData(prev => ({...prev, tableId: sortedTables[0].id}));
+        }
     }
-  }, [initialData]);
+  }, [initialData, tables]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.firstName || !formData.lastName || !formData.tableNumber) return;
+    if (!formData.firstName || !formData.lastName || !formData.tableId) return;
 
+    // Find table info for fallback data
+    const selectedTable = tables.find(t => t.id === formData.tableId);
+    
     onSubmit({
       ...formData,
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
-      tableNumber: formData.tableNumber, 
-      tableName: formData.tableName.trim(),
+      tableNumber: selectedTable?.number || 0, // Fallback
+      tableName: selectedTable?.name || '', // Fallback
       description: formData.description.trim()
     });
   };
@@ -58,7 +66,6 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
     <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 duration-300">
         
-        {/* Header */}
         <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <h2 className="font-serif text-xl font-bold text-slate-800">
             {isEdit ? 'Modifier invité' : 'Ajouter un invité'}
@@ -68,7 +75,6 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           
           <div className="grid grid-cols-2 gap-4">
@@ -96,33 +102,23 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-             <div className="col-span-1">
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Table N°</label>
-                <div className="relative">
+          <div>
+             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Table</label>
+             <div className="relative">
                 <Utensils size={16} className="absolute left-2.5 top-3 text-slate-400" />
-                <input
-                    type="text"
+                <select
                     required
-                    className="w-full pl-8 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800"
-                    placeholder="1"
-                    value={formData.tableNumber}
-                    onChange={e => setFormData({...formData, tableNumber: e.target.value})}
-                />
-                </div>
-             </div>
-             <div className="col-span-2">
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nom Table (Optionnel)</label>
-                <div className="relative">
-                <Tag size={16} className="absolute left-2.5 top-3 text-slate-400" />
-                <input
-                    type="text"
-                    className="w-full pl-8 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-                    placeholder="Ex: Honneur"
-                    value={formData.tableName}
-                    onChange={e => setFormData({...formData, tableName: e.target.value})}
-                />
-                </div>
+                    className="w-full pl-8 p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-medium text-slate-800 appearance-none"
+                    value={formData.tableId}
+                    onChange={e => setFormData({...formData, tableId: e.target.value})}
+                >
+                    <option value="" disabled>Choisir une table...</option>
+                    {tables.sort((a,b) => String(a.number).localeCompare(String(b.number), undefined, { numeric: true })).map(table => (
+                        <option key={table.id} value={table.id}>
+                            Table {table.number} {table.name ? `- ${table.name}` : ''}
+                        </option>
+                    ))}
+                </select>
              </div>
           </div>
 
@@ -160,7 +156,7 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
                   onChange={e => setFormData({
                     ...formData, 
                     isAbsent: e.target.checked,
-                    hasArrived: e.target.checked ? false : formData.hasArrived // Force not arrived if absent
+                    hasArrived: e.target.checked ? false : formData.hasArrived 
                   })}
                 />
                 <span className="text-xs font-medium text-rose-600">Absent</span>
@@ -190,7 +186,7 @@ const GuestForm: React.FC<GuestFormProps> = ({ initialData, onSubmit, onClose, i
               ) : (
                 <>
                   <Save size={20} />
-                  {isEdit ? 'Enregistrer les modifications' : 'Ajouter à la liste'}
+                  {isEdit ? 'Enregistrer' : 'Ajouter'}
                 </>
               )}
             </button>
