@@ -1,22 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Guest, UserRole } from '../types';
-import { Check, Utensils, Info, MoreVertical, Trash2, Edit, XCircle, UserX } from 'lucide-react';
+import { Check, Utensils, Info, MoreVertical, Trash2, Edit, UserX, Lock } from 'lucide-react';
 
 interface GuestCardProps {
   guest: Guest;
   userRole: UserRole;
+  canUncheck: boolean; // Permission passed from App
   onToggleStatus: (id: string, currentStatus: boolean) => void;
   onToggleAbsent: (id: string, currentAbsent: boolean) => void;
   onEdit: (guest: Guest) => void;
   onDelete: (id: string) => void;
 }
 
-const GuestCard: React.FC<GuestCardProps> = ({ guest, userRole, onToggleStatus, onToggleAbsent, onEdit, onDelete }) => {
+const GuestCard: React.FC<GuestCardProps> = ({ guest, userRole, canUncheck, onToggleStatus, onToggleAbsent, onEdit, onDelete }) => {
   const isArrived = guest.hasArrived;
   const isAbsent = guest.isAbsent;
   const isGuestRole = userRole === 'guest';
+  const isAdmin = userRole === 'admin';
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Check if current user has permission to toggle status
+  // 1. If not arrived, anyone (hostess/admin) can check in.
+  // 2. If arrived, Admin can always uncheck.
+  // 3. If arrived, Hostess can uncheck ONLY if canUncheck is true.
+  const isLocked = isArrived && !isAdmin && !canUncheck;
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -41,6 +49,15 @@ const GuestCard: React.FC<GuestCardProps> = ({ guest, userRole, onToggleStatus, 
     if (action === 'absent') {
       onToggleAbsent(guest.id, !!guest.isAbsent);
     }
+  };
+
+  const handleStatusClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (isLocked) {
+          alert("L'annulation d'une entrée est désactivée par l'administrateur.");
+          return;
+      }
+      onToggleStatus(guest.id, isArrived);
   };
 
   return (
@@ -141,25 +158,25 @@ const GuestCard: React.FC<GuestCardProps> = ({ guest, userRole, onToggleStatus, 
               </span>
             </div>
 
-            {/* HIDE CHECK BUTTON FOR GUESTS - OR MAKE IT INACTIVE */}
+            {/* ACTION BUTTON */}
             {!isGuestRole && (
                 <button
-                onClick={(e) => {
-                e.stopPropagation();
-                onToggleStatus(guest.id, isArrived);
-                }}
+                onClick={handleStatusClick}
+                disabled={isLocked && !isAbsent}
                 className={`
-                flex items-center justify-center rounded-full transition-all duration-200 active:scale-90
+                flex items-center justify-center rounded-full transition-all duration-200
                 ${isArrived 
-                    ? 'w-9 h-9 bg-emerald-500 text-white shadow-emerald-200 shadow-md' 
+                    ? `w-9 h-9 shadow-md ${isLocked ? 'bg-emerald-500/50 cursor-not-allowed text-white/80' : 'bg-emerald-500 text-white shadow-emerald-200 active:scale-90'}`
                     : isAbsent
-                    ? 'px-2 h-7 bg-rose-100 text-rose-600 text-[9px] font-bold border border-rose-200'
-                    : 'w-9 h-9 bg-slate-100 text-slate-300 hover:bg-slate-200'
+                    ? 'px-2 h-7 bg-rose-100 text-rose-600 text-[9px] font-bold border border-rose-200 active:scale-90'
+                    : 'w-9 h-9 bg-slate-100 text-slate-300 hover:bg-slate-200 active:scale-90'
                 }
                 `}
             >
                 {isAbsent ? (
                 <span>ABSENT</span>
+                ) : isLocked ? (
+                   <Lock size={16} />
                 ) : (
                 <>
                     <Check size={18} strokeWidth={3} className={`transition-all duration-200 ${isArrived ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`} />

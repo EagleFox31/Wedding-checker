@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, RefreshCw, X, Settings, Users, LayoutList, LayoutGrid, Plus, Lock, LogOut, ChevronRight, Download, CalendarClock, ListTodo, Crown, HeartHandshake, QrCode, Share } from 'lucide-react';
-import { Guest, GuestFilter, DashboardStats, UserRole, TimelineItem, Table } from './types';
+import { Guest, GuestFilter, DashboardStats, UserRole, TimelineItem, Table, AppPermissions } from './types';
 import * as guestService from './services/guestService';
 import * as planningService from './services/planningService';
 import Stats from './components/Stats';
@@ -23,6 +23,7 @@ const App: React.FC = () => {
   // App State
   const [rawGuests, setRawGuests] = useState<Guest[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
+  const [permissions, setPermissions] = useState<AppPermissions>({ hostessCanUncheck: true });
   const [planningItems, setPlanningItems] = useState<TimelineItem[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -109,6 +110,12 @@ const App: React.FC = () => {
     let unsubscribeGuests: () => void = () => {};
     let unsubscribeTables: () => void = () => {};
     let unsubscribePlanning: () => void = () => {};
+    let unsubscribePermissions: () => void = () => {};
+
+    // Global permission listener
+    unsubscribePermissions = guestService.subscribeToPermissions((perms) => {
+      setPermissions(perms);
+    });
 
     if (activeModule === 'checkin') {
         setLoading(true);
@@ -118,7 +125,7 @@ const App: React.FC = () => {
             setRawGuests(sorted);
             setLoading(false);
         });
-        // Subscribe to Tables (New!)
+        // Subscribe to Tables
         unsubscribeTables = guestService.subscribeToTables((data) => {
             setTables(data);
         });
@@ -136,6 +143,7 @@ const App: React.FC = () => {
         unsubscribeGuests();
         unsubscribeTables();
         unsubscribePlanning();
+        unsubscribePermissions();
     };
   }, [userRole, activeModule]);
 
@@ -219,6 +227,13 @@ const App: React.FC = () => {
   // ------------------------------------------------------------------
   const toggleGuestStatus = async (id: string, currentStatus: boolean) => {
     if (userRole === 'guest') return;
+    
+    // Permission check for Hostess
+    if (userRole === 'hostess' && currentStatus === true && !permissions.hostessCanUncheck) {
+       alert("Action non autorisée. Demandez à un administrateur.");
+       return;
+    }
+
     const newStatus = !currentStatus;
     // Optimistic on rawGuests
     setRawGuests(prev => prev.map(g => g.id === id ? { ...g, hasArrived: newStatus } : g));
@@ -323,7 +338,7 @@ const App: React.FC = () => {
   // ------------------------------------------------------------------
   if (!userRole) {
      return (
-        /* ...LOGIN VIEW SAME AS BEFORE BUT USING NEW STATES IF NEEDED... */
+        /* ...LOGIN VIEW... */
         <div className="h-[100dvh] w-full bg-slate-50 flex items-center justify-center p-6">
         <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
           <div className="p-8 text-center bg-slate-900 text-white relative overflow-hidden">
@@ -459,7 +474,16 @@ const App: React.FC = () => {
             <div className="flex justify-between items-center px-1 mb-2"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{filteredGuests.length} Résultat{filteredGuests.length > 1 ? 's' : ''}</span></div>
             <div className="grid grid-cols-2 gap-3">
               {filteredGuests.map(guest => (
-                <GuestCard key={guest.id} guest={guest} userRole={userRole} onToggleStatus={toggleGuestStatus} onToggleAbsent={handleToggleAbsent} onEdit={setEditingGuest} onDelete={handleDeleteGuest} />
+                <GuestCard 
+                    key={guest.id} 
+                    guest={guest} 
+                    userRole={userRole} 
+                    canUncheck={permissions.hostessCanUncheck}
+                    onToggleStatus={toggleGuestStatus} 
+                    onToggleAbsent={handleToggleAbsent} 
+                    onEdit={setEditingGuest} 
+                    onDelete={handleDeleteGuest} 
+                />
               ))}
             </div>
           </div>
@@ -470,7 +494,7 @@ const App: React.FC = () => {
         <button onClick={() => setShowGuestForm(true)} className="absolute bottom-6 right-6 w-14 h-14 bg-slate-900 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-300 z-40"><Plus size={28} /></button>
       )}
 
-      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} guests={enrichedGuests} />}
+      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} guests={enrichedGuests} permissions={permissions} />}
       {showShareModal && <ShareQrModal onClose={() => setShowShareModal(false)} />}
       
       {(showGuestForm || editingGuest) && (

@@ -31,6 +31,10 @@ export interface TimelineItem {
   isHighlight?: boolean;
 }
 
+export interface AppPermissions {
+  hostessCanUncheck: boolean;
+}
+
 export type GuestFilter = 'all' | 'arrived' | 'pending' | 'absent';
 export type UserRole = 'admin' | 'hostess' | 'planner' | 'guest';
 

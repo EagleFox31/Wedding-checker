@@ -1,4 +1,4 @@
-import { Guest, Table } from '../types';
+import { Guest, Table, AppPermissions } from '../types';
 import { db } from './firebase';
 import { collection, getDocs, doc, updateDoc, writeBatch, setDoc, deleteDoc, addDoc, query, where, onSnapshot, Unsubscribe, getDoc } from 'firebase/firestore';
 
@@ -97,6 +97,42 @@ export const subscribeToTables = (onUpdate: (tables: Table[]) => void): Unsubscr
         });
     }
 };
+
+// ==========================================
+// PERMISSIONS MANAGEMENT
+// ==========================================
+export const subscribeToPermissions = (onUpdate: (perms: AppPermissions) => void): Unsubscribe => {
+  if (USE_MOCK_DATA) {
+    const stored = localStorage.getItem('app_permissions');
+    onUpdate(stored ? JSON.parse(stored) : { hostessCanUncheck: true });
+    return () => {};
+  } else {
+    if (!db) return () => {};
+    const docRef = doc(db, "permissions", "config");
+    return onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        onUpdate(docSnap.data() as AppPermissions);
+      } else {
+        // Default permission if doc doesn't exist
+        onUpdate({ hostessCanUncheck: true });
+      }
+    });
+  }
+};
+
+export const updatePermission = async (perms: Partial<AppPermissions>): Promise<void> => {
+  if (USE_MOCK_DATA) {
+    const current = JSON.parse(localStorage.getItem('app_permissions') || '{"hostessCanUncheck": true}');
+    localStorage.setItem('app_permissions', JSON.stringify({ ...current, ...perms }));
+    // Force reload for mock since no real subscription triggers in same tab for localStorage
+    window.location.reload(); 
+  } else {
+    if (!db) return;
+    const docRef = doc(db, "permissions", "config");
+    await setDoc(docRef, perms, { merge: true });
+  }
+};
+
 
 // ==========================================
 // UPDATE STATUS (Check-in)

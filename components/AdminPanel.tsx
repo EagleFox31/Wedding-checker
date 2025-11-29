@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Upload, AlertCircle, CheckCircle, Database, Copy, ChevronDown, ChevronUp, FileSpreadsheet, Download, RefreshCw, CalendarRange, ArrowRightLeft } from 'lucide-react';
-import { Guest } from '../types';
+import { Upload, AlertCircle, CheckCircle, Database, Copy, ChevronDown, ChevronUp, FileSpreadsheet, Download, RefreshCw, CalendarRange, ArrowRightLeft, Lock, Unlock } from 'lucide-react';
+import { Guest, AppPermissions } from '../types';
 import * as guestService from '../services/guestService';
 import * as planningService from '../services/planningService';
 // @ts-ignore
@@ -9,14 +9,29 @@ import * as XLSX from 'xlsx';
 interface AdminPanelProps {
   onClose: () => void;
   guests: Guest[];
+  permissions?: AppPermissions; // New prop
 }
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests, permissions }) => {
   const [inputText, setInputText] = useState('');
   const [parsedGuests, setParsedGuests] = useState<Guest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isResettingPlanning, setIsResettingPlanning] = useState(false);
+  
+  // Local state for toggle immediate feedback
+  const [localCanUncheck, setLocalCanUncheck] = useState(permissions?.hostessCanUncheck ?? true);
+
+  const togglePermission = async () => {
+     const newValue = !localCanUncheck;
+     setLocalCanUncheck(newValue); // Optimistic UI
+     try {
+         await guestService.updatePermission({ hostessCanUncheck: newValue });
+     } catch(e) {
+         console.error(e);
+         setLocalCanUncheck(!newValue); // Rollback
+     }
+  };
 
   // Stats pour le rapport
   const total = currentGuests.length;
@@ -186,6 +201,40 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, guests: currentGuests 
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 pb-20">
+
+        {/* SECTION PERMISSIONS (NEW) */}
+        <div className="bg-white border border-slate-200 rounded-xl p-5 mb-8 shadow-sm">
+            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <Lock size={20} className="text-slate-600" />
+                Gestion des Permissions
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+                Contrôlez ce que les hôtesses peuvent faire en temps réel.
+            </p>
+            
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${localCanUncheck ? 'bg-orange-100 text-orange-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                        {localCanUncheck ? <Unlock size={16} /> : <Lock size={16} />}
+                    </div>
+                    <div>
+                        <div className="font-bold text-sm text-slate-800">Annulation Entrée</div>
+                        <div className="text-[10px] text-slate-500">Autoriser les hôtesses à "Décocher"</div>
+                    </div>
+                </div>
+                
+                {/* Custom Toggle Switch */}
+                <button 
+                    onClick={togglePermission}
+                    className={`
+                        w-12 h-6 rounded-full p-1 transition-all duration-300 flex items-center shadow-inner
+                        ${localCanUncheck ? 'bg-emerald-500 justify-end' : 'bg-slate-300 justify-start'}
+                    `}
+                >
+                    <div className="w-4 h-4 rounded-full bg-white shadow-md"></div>
+                </button>
+            </div>
+        </div>
 
         {/* SECTION MAINTENANCE */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 mb-8 shadow-sm">
